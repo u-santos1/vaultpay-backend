@@ -26,4 +26,8 @@ public class Conta {
 
     @Column(nullable = false)
     private Boolean ativo = true;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 }

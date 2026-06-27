@@ -2,6 +2,8 @@ package com.vaultpay.api.service;
 
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
+import com.vaultpay.api.infra.exception.ContaNaoEncontradaException;
+import com.vaultpay.api.infra.exception.SaldoInsuficienteException;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Transacao;
 import com.vaultpay.api.repository.ContaRepository;
@@ -35,16 +37,16 @@ public class TransacaoService {
 
         // Adquirindo lock pessimista definido no ContaRepository
         Conta firstConta = contaRepository.findByIdWithPessimisticLock(firstIdToLock)
-                .orElseThrow(() -> new IllegalArgumentException("Conta não encontrada: " + firstIdToLock));
+                .orElseThrow(() -> new ContaNaoEncontradaException("Conta não encontrada: " + firstIdToLock));
         
         Conta secondConta = contaRepository.findByIdWithPessimisticLock(secondIdToLock)
-                .orElseThrow(() -> new IllegalArgumentException("Conta não encontrada: " + secondIdToLock));
+                .orElseThrow(() -> new ContaNaoEncontradaException("Conta não encontrada: " + secondIdToLock));
 
         Conta contaOrigem = firstConta.getId().equals(data.idContaOrigem()) ? firstConta : secondConta;
         Conta contaDestino = firstConta.getId().equals(data.idContaDestino()) ? firstConta : secondConta;
 
         if (contaOrigem.getSaldo().compareTo(data.valor()) < 0) {
-            throw new IllegalArgumentException("Saldo insuficiente na conta de origem.");
+            throw new SaldoInsuficienteException("Saldo insuficiente na conta de origem.");
         }
 
         // Atualizando os saldos
