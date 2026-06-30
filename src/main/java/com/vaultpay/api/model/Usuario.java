@@ -8,6 +8,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -31,6 +32,9 @@ public class Usuario implements UserDetails {
 
     @Column(nullable = false)
     private boolean ativo = true;
+
+    @Column(name = "data_ultima_alteracao_senha")
+    private Instant dataUltimaAlteracaoSenha = Instant.now();
 
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
