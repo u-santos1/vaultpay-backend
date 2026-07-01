@@ -31,7 +31,7 @@ public class ContaServiceTest {
 
     @BeforeEach
     void setUp() {
-        contaRequestDTO = new ContaRequestDTO("12345-6", new BigDecimal("100.00"));
+        contaRequestDTO = new ContaRequestDTO("12345-6", new BigDecimal("100.00"), 1L);
         conta = Conta.builder()
                 .id(1L)
                 .numero("12345-6")

@@ -1,0 +1,304 @@
+﻿diff --git a/ecc-temp b/ecc-temp
+--- a/ecc-temp
++++ b/ecc-temp
+@@ -1 +1 @@
+-Subproject commit 2bc924faf2f8e893bfe0af86b1931283693c30ae
++Subproject commit 2bc924faf2f8e893bfe0af86b1931283693c30ae-dirty
+diff --git a/src/main/java/com/vaultpay/api/controller/TransacaoController.java b/src/main/java/com/vaultpay/api/controller/TransacaoController.java
+index 62de160..f8f006c 100644
+--- a/src/main/java/com/vaultpay/api/controller/TransacaoController.java
++++ b/src/main/java/com/vaultpay/api/controller/TransacaoController.java
+@@ -3,12 +3,10 @@ package com.vaultpay.api.controller;
+ import com.vaultpay.api.dtos.TransacaoRequestDTO;
+ import com.vaultpay.api.dtos.TransacaoResponseDTO;
+ import com.vaultpay.api.service.TransacaoService;
++import jakarta.validation.Valid;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.http.ResponseEntity;
+-import org.springframework.web.bind.annotation.PostMapping;
+-import org.springframework.web.bind.annotation.RequestBody;
+-import org.springframework.web.bind.annotation.RequestMapping;
+-import org.springframework.web.bind.annotation.RestController;
++import org.springframework.web.bind.annotation.*;
+ import org.springframework.web.util.UriComponentsBuilder;
+ 
+ import java.net.URI;
+@@ -21,9 +19,11 @@ public class TransacaoController {
+     private final TransacaoService transacaoService;
+ 
+     @PostMapping
+-    public ResponseEntity<TransacaoResponseDTO> transferir(@RequestBody TransacaoRequestDTO request,
+-            UriComponentsBuilder uriComponentsBuilder) {
+-        TransacaoResponseDTO response = transacaoService.realizarTransferencia(request);
++    public ResponseEntity<TransacaoResponseDTO> transferir(
++            @RequestBody @Valid TransacaoRequestDTO data,
++            UriComponentsBuilder uriComponentsBuilder,
++            @RequestHeader("X-Idempotency-Key") String chaveIdempotencia) {
++        TransacaoResponseDTO response = transacaoService.realizarTransferencia(data, chaveIdempotencia);
+ 
+         var uri = uriComponentsBuilder.path("/transacao/{id}").buildAndExpand(response.id()).toUri();
+ 
+diff --git a/src/main/java/com/vaultpay/api/dtos/ContaRequestDTO.java b/src/main/java/com/vaultpay/api/dtos/ContaRequestDTO.java
+index e1d5fd0..d9c4f68 100644
+--- a/src/main/java/com/vaultpay/api/dtos/ContaRequestDTO.java
++++ b/src/main/java/com/vaultpay/api/dtos/ContaRequestDTO.java
+@@ -1,6 +1,13 @@
+ package com.vaultpay.api.dtos;
+ 
++import jakarta.validation.constraints.NotBlank;
++import jakarta.validation.constraints.NotNull;
++
+ import java.math.BigDecimal;
+ 
+-public record ContaRequestDTO(String numero, BigDecimal saldo) {
++public record ContaRequestDTO(
++        @NotBlank String numero,
++        @NotNull BigDecimal saldo,
++        @NotNull Long usuarioId
++) {
+ }
+diff --git a/src/main/java/com/vaultpay/api/infra/exception/ContaInativaException.java b/src/main/java/com/vaultpay/api/infra/exception/ContaInativaException.java
+new file mode 100644
+index 0000000..ccadf4b
+--- /dev/null
++++ b/src/main/java/com/vaultpay/api/infra/exception/ContaInativaException.java
+@@ -0,0 +1,7 @@
++package com.vaultpay.api.infra.exception;
++
++public class ContaInativaException extends RuntimeException {
++    public ContaInativaException(String message) {
++        super(message);
++    }
++}
+diff --git a/src/main/java/com/vaultpay/api/infra/exception/TransacaoDuplicadaException.java b/src/main/java/com/vaultpay/api/infra/exception/TransacaoDuplicadaException.java
+new file mode 100644
+index 0000000..f51f313
+--- /dev/null
++++ b/src/main/java/com/vaultpay/api/infra/exception/TransacaoDuplicadaException.java
+@@ -0,0 +1,7 @@
++package com.vaultpay.api.infra.exception;
++
++public class TransacaoDuplicadaException extends RuntimeException {
++    public TransacaoDuplicadaException(String message) {
++        super(message);
++    }
++}
+diff --git a/src/main/java/com/vaultpay/api/model/Transacao.java b/src/main/java/com/vaultpay/api/model/Transacao.java
+index 6d04ab0..4f168cb 100644
+--- a/src/main/java/com/vaultpay/api/model/Transacao.java
++++ b/src/main/java/com/vaultpay/api/model/Transacao.java
+@@ -33,4 +33,9 @@ public class Transacao {
+ 
+     @Column(nullable = false)
+     private LocalDateTime dataHora;
++
++    @Column(unique = true, nullable = false)
++    private String chaveIdempotencia;
++
++
+ }
+diff --git a/src/main/java/com/vaultpay/api/repository/TransacaoRepository.java b/src/main/java/com/vaultpay/api/repository/TransacaoRepository.java
+index a9ddce4..6054f7d 100644
+--- a/src/main/java/com/vaultpay/api/repository/TransacaoRepository.java
++++ b/src/main/java/com/vaultpay/api/repository/TransacaoRepository.java
+@@ -8,4 +8,5 @@ import java.util.UUID;
+ 
+ @Repository
+ public interface TransacaoRepository extends JpaRepository<Transacao, UUID> {
++    boolean existsByChaveIdempotencia(String chave);
+ }
+diff --git a/src/main/java/com/vaultpay/api/service/ContaService.java b/src/main/java/com/vaultpay/api/service/ContaService.java
+index c52fe48..1c1eb34 100644
+--- a/src/main/java/com/vaultpay/api/service/ContaService.java
++++ b/src/main/java/com/vaultpay/api/service/ContaService.java
+@@ -3,7 +3,9 @@ package com.vaultpay.api.service;
+ import com.vaultpay.api.dtos.ContaRequestDTO;
+ import com.vaultpay.api.dtosResponse.ContaResponse;
+ import com.vaultpay.api.model.Conta;
++import com.vaultpay.api.model.Usuario;
+ import com.vaultpay.api.repository.ContaRepository;
++import com.vaultpay.api.repository.UsuarioRepository;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.stereotype.Service;
+ 
+@@ -12,14 +14,20 @@ import org.springframework.stereotype.Service;
+ public class ContaService {
+ 
+     private final ContaRepository contaRepository;
++    private final UsuarioRepository usuarioRepository;
+ 
+     public ContaResponse CriarConta(ContaRequestDTO data){
+         if(contaRepository.existsByNumero(data.numero())){
+             throw new IllegalArgumentException("Ja existe uma conta registrada com este numero");
+         }
++        Usuario usuario = usuarioRepository.findById(data.usuarioId())
++                .orElseThrow(()-> new IllegalArgumentException("N├úo ├® poss├¡vel criar a conta: Usu├írio n├úo encontrado."));
+         Conta novaConta = Conta.builder().
+                 numero(data.numero())
+-                .saldo(data.saldo()).build();
++                .saldo(data.saldo())
++                .usuario(usuario)
++                .ativo(true)
++                .build();
+ 
+         Conta contaSalvar = contaRepository.save(novaConta);
+         return ContaResponse.dto(contaSalvar);
+diff --git a/src/main/java/com/vaultpay/api/service/TransacaoService.java b/src/main/java/com/vaultpay/api/service/TransacaoService.java
+index 2bfc852..db46399 100644
+--- a/src/main/java/com/vaultpay/api/service/TransacaoService.java
++++ b/src/main/java/com/vaultpay/api/service/TransacaoService.java
+@@ -2,8 +2,10 @@ package com.vaultpay.api.service;
+ 
+ import com.vaultpay.api.dtos.TransacaoRequestDTO;
+ import com.vaultpay.api.dtos.TransacaoResponseDTO;
++import com.vaultpay.api.infra.exception.ContaInativaException;
+ import com.vaultpay.api.infra.exception.ContaNaoEncontradaException;
+ import com.vaultpay.api.infra.exception.SaldoInsuficienteException;
++import com.vaultpay.api.infra.exception.TransacaoDuplicadaException;
+ import com.vaultpay.api.model.Conta;
+ import com.vaultpay.api.model.Transacao;
+ import com.vaultpay.api.repository.ContaRepository;
+@@ -23,13 +25,17 @@ public class TransacaoService {
+     private final TransacaoRepository transacaoRepository;
+ 
+     @Transactional
+-    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data) {
++    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia) {
++
+         if (data.idContaOrigem().equals(data.idContaDestino())) {
+             throw new IllegalArgumentException("Conta de origem e destino n├úo podem ser a mesma.");
+         }
+         if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
+             throw new IllegalArgumentException("Valor da transfer├¬ncia deve ser maior que zero.");
+         }
++        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)){
++            throw new TransacaoDuplicadaException("Opera├º├úo recusada: Uma transa├º├úo com esta chave de idempot├¬ncia j├í foi processada.");
++        }
+ 
+         // Ordenando os IDs para evitar deadlocks em transfer├¬ncias concorrentes (ex: A -> B e B -> A simultaneamente)
+         Long firstIdToLock = data.idContaOrigem() < data.idContaDestino() ? data.idContaOrigem() : data.idContaDestino();
+@@ -45,6 +51,13 @@ public class TransacaoService {
+         Conta contaOrigem = firstConta.getId().equals(data.idContaOrigem()) ? firstConta : secondConta;
+         Conta contaDestino = firstConta.getId().equals(data.idContaDestino()) ? firstConta : secondConta;
+ 
++        if(!contaOrigem.getAtivo()){
++            throw new ContaInativaException("Opera├º├úo cancelada: A conta de origem est├í inativa.");
++        }
++        if(!contaDestino.getAtivo()){
++            throw new ContaInativaException("Opera├º├úo cancelada: A conta de destino est├í inativa.");
++        }
++
+         if (contaOrigem.getSaldo().compareTo(data.valor()) < 0) {
+             throw new SaldoInsuficienteException("Saldo insuficiente na conta de origem.");
+         }
+@@ -61,6 +74,7 @@ public class TransacaoService {
+                 .contaOrigem(contaOrigem)
+                 .contaDestino(contaDestino)
+                 .valor(data.valor())
++                .chaveIdempotencia(chaveIdempotencia)
+                 .dataHora(LocalDateTime.now())
+                 .build();
+ 
+diff --git a/src/test/java/com/vaultpay/api/service/ContaServiceTest.java b/src/test/java/com/vaultpay/api/service/ContaServiceTest.java
+index 43cf1b5..3b2dc76 100644
+--- a/src/test/java/com/vaultpay/api/service/ContaServiceTest.java
++++ b/src/test/java/com/vaultpay/api/service/ContaServiceTest.java
+@@ -31,7 +31,7 @@ public class ContaServiceTest {
+ 
+     @BeforeEach
+     void setUp() {
+-        contaRequestDTO = new ContaRequestDTO("12345-6", new BigDecimal("100.00"));
++        contaRequestDTO = new ContaRequestDTO("12345-6", new BigDecimal("100.00"), 1L);
+         conta = Conta.builder()
+                 .id(1L)
+                 .numero("12345-6")
+diff --git a/src/test/java/com/vaultpay/api/service/TransacaoServiceTest.java b/src/test/java/com/vaultpay/api/service/TransacaoServiceTest.java
+index 5e51e6b..9100ccf 100644
+--- a/src/test/java/com/vaultpay/api/service/TransacaoServiceTest.java
++++ b/src/test/java/com/vaultpay/api/service/TransacaoServiceTest.java
+@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
+ import java.math.BigDecimal;
+ import java.time.LocalDateTime;
+ import java.util.Optional;
++import java.util.UUID;
+ 
+ import static org.junit.jupiter.api.Assertions.*;
+ import static org.mockito.ArgumentMatchers.any;
+@@ -57,6 +58,8 @@ public class TransacaoServiceTest {
+     @Test
+     void realizarTransferencia_DeveOcorrerComSucesso() {
+         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("100.00"));
++        String chave = String.valueOf(UUID.randomUUID());
++
+ 
+         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
+         when(contaRepository.findByIdWithPessimisticLock(2L)).thenReturn(Optional.of(contaDestino));
+@@ -67,11 +70,12 @@ public class TransacaoServiceTest {
+                 .contaDestino(contaDestino)
+                 .valor(request.valor())
+                 .dataHora(LocalDateTime.now())
++                .chaveIdempotencia(chave)
+                 .build();
+ 
+         when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
+ 
+-        TransacaoResponseDTO response = transacaoService.realizarTransferencia(request);
++        TransacaoResponseDTO response = transacaoService.realizarTransferencia(request,chave);
+ 
+         assertNotNull(response);
+         assertEquals(new BigDecimal("400.00"), contaOrigem.getSaldo());
+@@ -86,8 +90,9 @@ public class TransacaoServiceTest {
+     void realizarTransferencia_DeveFalharContasIguais() {
+         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 1L, new BigDecimal("100.00"));
+ 
++        String chave = String.valueOf(UUID.randomUUID());
+         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+-            transacaoService.realizarTransferencia(request);
++            transacaoService.realizarTransferencia(request, chave);
+         });
+ 
+         assertEquals("Conta de origem e destino n├úo podem ser a mesma.", exception.getMessage());
+@@ -97,9 +102,10 @@ public class TransacaoServiceTest {
+     @Test
+     void realizarTransferencia_DeveFalharValorInvalido() {
+         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, BigDecimal.ZERO);
++        String chave = String.valueOf(UUID.randomUUID());
+ 
+         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+-            transacaoService.realizarTransferencia(request);
++            transacaoService.realizarTransferencia(request,chave);
+         });
+ 
+         assertEquals("Valor da transfer├¬ncia deve ser maior que zero.", exception.getMessage());
+@@ -109,12 +115,14 @@ public class TransacaoServiceTest {
+     @Test
+     void realizarTransferencia_DeveFalharContaNaoEncontrada() {
+         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("100.00"));
++        String chave = String.valueOf(UUID.randomUUID());
++
+ 
+         // Retorna a conta de origem mas simula que a de destino nao existe
+         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.empty());
+ 
+         ContaNaoEncontradaException exception = assertThrows(ContaNaoEncontradaException.class, () -> {
+-            transacaoService.realizarTransferencia(request);
++            transacaoService.realizarTransferencia(request, chave);
+         });
+ 
+         assertTrue(exception.getMessage().contains("Conta n├úo encontrada"));
+@@ -123,12 +131,14 @@ public class TransacaoServiceTest {
+     @Test
+     void realizarTransferencia_DeveFalharSaldoInsuficiente() {
+         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("600.00")); // maior que 500
++        String chave = String.valueOf(UUID.randomUUID());
++
+ 
+         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
+         when(contaRepository.findByIdWithPessimisticLock(2L)).thenReturn(Optional.of(contaDestino));
+ 
+         SaldoInsuficienteException exception = assertThrows(SaldoInsuficienteException.class, () -> {
+-            transacaoService.realizarTransferencia(request);
++            transacaoService.realizarTransferencia(request,chave);
+         });
+ 
+         assertEquals("Saldo insuficiente na conta de origem.", exception.getMessage());

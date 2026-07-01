@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,6 +58,8 @@ public class TransacaoServiceTest {
     @Test
     void realizarTransferencia_DeveOcorrerComSucesso() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("100.00"));
+        String chave = String.valueOf(UUID.randomUUID());
+
 
         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
         when(contaRepository.findByIdWithPessimisticLock(2L)).thenReturn(Optional.of(contaDestino));
@@ -67,11 +70,12 @@ public class TransacaoServiceTest {
                 .contaDestino(contaDestino)
                 .valor(request.valor())
                 .dataHora(LocalDateTime.now())
+                .chaveIdempotencia(chave)
                 .build();
 
         when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
 
-        TransacaoResponseDTO response = transacaoService.realizarTransferencia(request);
+        TransacaoResponseDTO response = transacaoService.realizarTransferencia(request,chave);
 
         assertNotNull(response);
         assertEquals(new BigDecimal("400.00"), contaOrigem.getSaldo());
@@ -86,8 +90,9 @@ public class TransacaoServiceTest {
     void realizarTransferencia_DeveFalharContasIguais() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 1L, new BigDecimal("100.00"));
 
+        String chave = String.valueOf(UUID.randomUUID());
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            transacaoService.realizarTransferencia(request);
+            transacaoService.realizarTransferencia(request, chave);
         });
 
         assertEquals("Conta de origem e destino não podem ser a mesma.", exception.getMessage());
@@ -97,9 +102,10 @@ public class TransacaoServiceTest {
     @Test
     void realizarTransferencia_DeveFalharValorInvalido() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, BigDecimal.ZERO);
+        String chave = String.valueOf(UUID.randomUUID());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            transacaoService.realizarTransferencia(request);
+            transacaoService.realizarTransferencia(request,chave);
         });
 
         assertEquals("Valor da transferência deve ser maior que zero.", exception.getMessage());
@@ -109,12 +115,14 @@ public class TransacaoServiceTest {
     @Test
     void realizarTransferencia_DeveFalharContaNaoEncontrada() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("100.00"));
+        String chave = String.valueOf(UUID.randomUUID());
+
 
         // Retorna a conta de origem mas simula que a de destino nao existe
         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.empty());
 
         ContaNaoEncontradaException exception = assertThrows(ContaNaoEncontradaException.class, () -> {
-            transacaoService.realizarTransferencia(request);
+            transacaoService.realizarTransferencia(request, chave);
         });
 
         assertTrue(exception.getMessage().contains("Conta não encontrada"));
@@ -123,12 +131,14 @@ public class TransacaoServiceTest {
     @Test
     void realizarTransferencia_DeveFalharSaldoInsuficiente() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("600.00")); // maior que 500
+        String chave = String.valueOf(UUID.randomUUID());
+
 
         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
         when(contaRepository.findByIdWithPessimisticLock(2L)).thenReturn(Optional.of(contaDestino));
 
         SaldoInsuficienteException exception = assertThrows(SaldoInsuficienteException.class, () -> {
-            transacaoService.realizarTransferencia(request);
+            transacaoService.realizarTransferencia(request,chave);
         });
 
         assertEquals("Saldo insuficiente na conta de origem.", exception.getMessage());

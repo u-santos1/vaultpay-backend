@@ -8,4 +8,5 @@ import java.util.UUID;
 
 @Repository
 public interface TransacaoRepository extends JpaRepository<Transacao, UUID> {
+    boolean existsByChaveIdempotencia(String chave);
 }

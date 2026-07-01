@@ -2,8 +2,10 @@ package com.vaultpay.api.service;
 
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
+import com.vaultpay.api.infra.exception.ContaInativaException;
 import com.vaultpay.api.infra.exception.ContaNaoEncontradaException;
 import com.vaultpay.api.infra.exception.SaldoInsuficienteException;
+import com.vaultpay.api.infra.exception.TransacaoDuplicadaException;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Transacao;
 import com.vaultpay.api.repository.ContaRepository;
@@ -23,12 +25,16 @@ public class TransacaoService {
     private final TransacaoRepository transacaoRepository;
 
     @Transactional
-    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data) {
+    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia) {
+
         if (data.idContaOrigem().equals(data.idContaDestino())) {
             throw new IllegalArgumentException("Conta de origem e destino não podem ser a mesma.");
         }
         if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor da transferência deve ser maior que zero.");
+        }
+        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)){
+            throw new TransacaoDuplicadaException("Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
         }
 
         // Ordenando os IDs para evitar deadlocks em transferências concorrentes (ex: A -> B e B -> A simultaneamente)
@@ -44,6 +50,13 @@ public class TransacaoService {
 
         Conta contaOrigem = firstConta.getId().equals(data.idContaOrigem()) ? firstConta : secondConta;
         Conta contaDestino = firstConta.getId().equals(data.idContaDestino()) ? firstConta : secondConta;
+
+        if(!contaOrigem.getAtivo()){
+            throw new ContaInativaException("Operação cancelada: A conta de origem está inativa.");
+        }
+        if(!contaDestino.getAtivo()){
+            throw new ContaInativaException("Operação cancelada: A conta de destino está inativa.");
+        }
 
         if (contaOrigem.getSaldo().compareTo(data.valor()) < 0) {
             throw new SaldoInsuficienteException("Saldo insuficiente na conta de origem.");
@@ -61,6 +74,7 @@ public class TransacaoService {
                 .contaOrigem(contaOrigem)
                 .contaDestino(contaDestino)
                 .valor(data.valor())
+                .chaveIdempotencia(chaveIdempotencia)
                 .dataHora(LocalDateTime.now())
                 .build();
 

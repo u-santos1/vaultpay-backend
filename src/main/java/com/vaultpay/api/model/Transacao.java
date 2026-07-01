@@ -33,4 +33,9 @@ public class Transacao {
 
     @Column(nullable = false)
     private LocalDateTime dataHora;
+
+    @Column(unique = true, nullable = false)
+    private String chaveIdempotencia;
+
+
 }
