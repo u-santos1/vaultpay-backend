@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class TokenService {
 
-    @Value("${api.segurity.token.secret}")
+    @Value("${api.security.token.secret}")
     private String secret;
 
     @PostConstruct
