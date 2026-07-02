@@ -2,12 +2,10 @@ package com.vaultpay.api.service;
 
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
-import com.vaultpay.api.infra.exception.ContaInativaException;
-import com.vaultpay.api.infra.exception.ContaNaoEncontradaException;
-import com.vaultpay.api.infra.exception.SaldoInsuficienteException;
-import com.vaultpay.api.infra.exception.TransacaoDuplicadaException;
+import com.vaultpay.api.infra.exception.*;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Transacao;
+import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
 import com.vaultpay.api.repository.TransacaoRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +24,7 @@ public class TransacaoService {
     private final TransacaoRepository transacaoRepository;
 
     @Transactional
-    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia) {
+    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia, Usuario usuarioLogado) {
 
         if (data.idContaOrigem().equals(data.idContaDestino())) {
             throw new IllegalArgumentException("Conta de origem e destino não podem ser a mesma.");
@@ -51,6 +50,10 @@ public class TransacaoService {
         Conta contaOrigem = firstConta.getId().equals(data.idContaOrigem()) ? firstConta : secondConta;
         Conta contaDestino = firstConta.getId().equals(data.idContaDestino()) ? firstConta : secondConta;
 
+        if (!contaOrigem.getUsuario().getId().equals(usuarioLogado.getId())){
+            throw new AcessoNegadoException("Usuario diferente da conta origem");
+        }
+
         if(!contaOrigem.getAtivo()){
             throw new ContaInativaException("Operação cancelada: A conta de origem está inativa.");
         }
@@ -60,6 +63,12 @@ public class TransacaoService {
 
         if (contaOrigem.getSaldo().compareTo(data.valor()) < 0) {
             throw new SaldoInsuficienteException("Saldo insuficiente na conta de origem.");
+        }
+        if (contaOrigem.getLimiteTransacao() != null && data.valor()
+                .compareTo(contaDestino.getLimiteTransacao()) > 0){
+            throw new LimiteTransacionalExcedidoException(
+                    "O valor da transferencia excede o limite permitido por transacao"
+            );
         }
 
         // Atualizando os saldos

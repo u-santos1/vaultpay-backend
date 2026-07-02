@@ -9,6 +9,8 @@ import com.vaultpay.api.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 public class ContaService {
@@ -26,6 +28,7 @@ public class ContaService {
                 numero(data.numero())
                 .saldo(data.saldo())
                 .usuario(usuario)
+                .limiteTransacao(new BigDecimal("10000.00"))
                 .ativo(true)
                 .build();
 

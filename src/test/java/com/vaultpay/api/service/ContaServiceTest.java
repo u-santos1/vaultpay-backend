@@ -3,7 +3,9 @@ package com.vaultpay.api.service;
 import com.vaultpay.api.dtos.ContaRequestDTO;
 import com.vaultpay.api.dtosResponse.ContaResponse;
 import com.vaultpay.api.model.Conta;
+import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
+import com.vaultpay.api.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,25 +26,33 @@ public class ContaServiceTest {
     @Mock
     private ContaRepository contaRepository;
 
+    @Mock
+    private UsuarioRepository usuarioRepository;
+
     @InjectMocks
     private ContaService contaService;
 
     private ContaRequestDTO contaRequestDTO;
     private Conta conta;
+    private Usuario usuario;
 
     @BeforeEach
     void setUp() {
-        contaRequestDTO = new ContaRequestDTO("12345-6", new BigDecimal("100.00"), 1L);
+        contaRequestDTO = new ContaRequestDTO("12345-6", new BigDecimal("100.00"), 1L, new BigDecimal("10000.00"));
+        usuario = new Usuario();
+        usuario.setId(1L);
         conta = Conta.builder()
                 .id(1L)
                 .numero("12345-6")
                 .saldo(new BigDecimal("100.00"))
+                .usuario(usuario)
                 .build();
     }
 
     @Test
     void criarConta_DeveCriarContaComSucesso() {
         when(contaRepository.existsByNumero("12345-6")).thenReturn(false);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
         when(contaRepository.save(any(Conta.class))).thenReturn(conta);
 
         ContaResponse response = contaService.CriarConta(contaRequestDTO);
@@ -52,6 +63,7 @@ public class ContaServiceTest {
         assertEquals(new BigDecimal("100.00"), response.saldo());
 
         verify(contaRepository, times(1)).existsByNumero("12345-6");
+        verify(usuarioRepository, times(1)).findById(1L);
         verify(contaRepository, times(1)).save(any(Conta.class));
     }
 

@@ -2,10 +2,10 @@ package com.vaultpay.api.service;
 
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
-import com.vaultpay.api.infra.exception.ContaNaoEncontradaException;
-import com.vaultpay.api.infra.exception.SaldoInsuficienteException;
+import com.vaultpay.api.infra.exception.*;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Transacao;
+import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
 import com.vaultpay.api.repository.TransacaoRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,16 +42,24 @@ public class TransacaoServiceTest {
 
     @BeforeEach
     void setUp() {
+        Usuario donoDaConta = new Usuario();
+        donoDaConta.setId(1L);
         contaOrigem = Conta.builder()
                 .id(1L)
                 .numero("11111-1")
                 .saldo(new BigDecimal("500.00"))
+                .limiteTransacao(new BigDecimal("10000.00"))
+                .ativo(true)
+                .usuario(donoDaConta)
                 .build();
 
         contaDestino = Conta.builder()
                 .id(2L)
                 .numero("22222-2")
                 .saldo(new BigDecimal("100.00"))
+                .limiteTransacao(new BigDecimal("10000.00"))
+                .ativo(true)
+                .usuario(new Usuario())
                 .build();
     }
 
@@ -59,6 +67,8 @@ public class TransacaoServiceTest {
     void realizarTransferencia_DeveOcorrerComSucesso() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("100.00"));
         String chave = String.valueOf(UUID.randomUUID());
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
 
 
         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
@@ -75,7 +85,7 @@ public class TransacaoServiceTest {
 
         when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
 
-        TransacaoResponseDTO response = transacaoService.realizarTransferencia(request,chave);
+        TransacaoResponseDTO response = transacaoService.realizarTransferencia(request,chave, usuarioLogado);
 
         assertNotNull(response);
         assertEquals(new BigDecimal("400.00"), contaOrigem.getSaldo());
@@ -89,10 +99,11 @@ public class TransacaoServiceTest {
     @Test
     void realizarTransferencia_DeveFalharContasIguais() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 1L, new BigDecimal("100.00"));
-
-        String chave = String.valueOf(UUID.randomUUID());
+        String chave = UUID.randomUUID().toString();
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            transacaoService.realizarTransferencia(request, chave);
+            transacaoService.realizarTransferencia(request, chave, usuarioLogado);
         });
 
         assertEquals("Conta de origem e destino não podem ser a mesma.", exception.getMessage());
@@ -104,8 +115,10 @@ public class TransacaoServiceTest {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, BigDecimal.ZERO);
         String chave = String.valueOf(UUID.randomUUID());
 
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            transacaoService.realizarTransferencia(request,chave);
+            transacaoService.realizarTransferencia(request,chave,usuarioLogado);
         });
 
         assertEquals("Valor da transferência deve ser maior que zero.", exception.getMessage());
@@ -117,12 +130,15 @@ public class TransacaoServiceTest {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("100.00"));
         String chave = String.valueOf(UUID.randomUUID());
 
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
 
         // Retorna a conta de origem mas simula que a de destino nao existe
         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.empty());
 
+
         ContaNaoEncontradaException exception = assertThrows(ContaNaoEncontradaException.class, () -> {
-            transacaoService.realizarTransferencia(request, chave);
+            transacaoService.realizarTransferencia(request, chave,usuarioLogado);
         });
 
         assertTrue(exception.getMessage().contains("Conta não encontrada"));
@@ -132,13 +148,14 @@ public class TransacaoServiceTest {
     void realizarTransferencia_DeveFalharSaldoInsuficiente() {
         TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("600.00")); // maior que 500
         String chave = String.valueOf(UUID.randomUUID());
-
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
 
         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
         when(contaRepository.findByIdWithPessimisticLock(2L)).thenReturn(Optional.of(contaDestino));
 
         SaldoInsuficienteException exception = assertThrows(SaldoInsuficienteException.class, () -> {
-            transacaoService.realizarTransferencia(request,chave);
+            transacaoService.realizarTransferencia(request,chave, usuarioLogado);
         });
 
         assertEquals("Saldo insuficiente na conta de origem.", exception.getMessage());
@@ -149,5 +166,61 @@ public class TransacaoServiceTest {
         
         verify(contaRepository, never()).save(any(Conta.class));
         verify(transacaoRepository, never()).save(any(Transacao.class));
+    }
+    @Test
+    void realizarTransferencia_DeveFalharQuandoUsuarioNaoForDaConta(){
+        TransacaoRequestDTO requestDTO = new TransacaoRequestDTO(1L,2L, new BigDecimal("100.00"));
+        String chave = UUID.randomUUID().toString();
+
+        Usuario hackerLogado = new Usuario();
+        hackerLogado.setId(99L);
+
+        when(contaRepository.findByIdWithPessimisticLock(1L))
+                .thenReturn(Optional.of(contaOrigem));
+        when(contaRepository.findByIdWithPessimisticLock(2L))
+                .thenReturn(Optional.of(contaDestino));
+
+        AcessoNegadoException exception = assertThrows(AcessoNegadoException.class, () ->{
+            transacaoService.realizarTransferencia(requestDTO, chave, hackerLogado);
+        });
+        assertEquals("Usuario diferente da conta origem", exception.getMessage());
+        verify(contaRepository, never()).save(any(Conta.class));
+    }
+    @Test
+    void realizarTransferencia_DeveFalharQuandoExcedeLimiteTransacional() {
+
+        TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("15000.00"));
+        String chave = UUID.randomUUID().toString();
+
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
+        contaOrigem.setSaldo(new BigDecimal("20000.00"));
+
+        when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
+        when(contaRepository.findByIdWithPessimisticLock(2L)).thenReturn(Optional.of(contaDestino));
+
+        LimiteTransacionalExcedidoException exception = assertThrows(LimiteTransacionalExcedidoException.class, () -> {
+            transacaoService.realizarTransferencia(request, chave, usuarioLogado);
+        });
+
+        assertTrue(exception.getMessage().contains("excede o limite permitido"));
+        verify(contaRepository, never()).save(any(Conta.class));
+    }
+    @Test
+    void realizarTransferencia_DeveFalharChaveIdempotenciaDuplicada() {
+        TransacaoRequestDTO request = new TransacaoRequestDTO(1L, 2L, new BigDecimal("100.00"));
+        String chave = UUID.randomUUID().toString();
+
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
+
+        when(transacaoRepository.existsByChaveIdempotencia(chave)).thenReturn(true);
+
+        TransacaoDuplicadaException exception = assertThrows(TransacaoDuplicadaException.class, () -> {
+            transacaoService.realizarTransferencia(request, chave, usuarioLogado);
+        });
+
+        assertTrue(exception.getMessage().contains("já foi processada"));
+        verify(contaRepository, never()).findByIdWithPessimisticLock(anyLong());
     }
 }

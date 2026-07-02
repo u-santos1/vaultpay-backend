@@ -25,7 +25,11 @@ public class Conta {
     private BigDecimal saldo;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean ativo = true;
+
+    @Column(nullable = false)
+    private BigDecimal limiteTransacao;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)

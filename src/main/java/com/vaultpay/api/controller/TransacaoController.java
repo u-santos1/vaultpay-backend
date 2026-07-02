@@ -2,10 +2,12 @@ package com.vaultpay.api.controller;
 
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
+import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.service.TransacaoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -22,8 +24,9 @@ public class TransacaoController {
     public ResponseEntity<TransacaoResponseDTO> transferir(
             @RequestBody @Valid TransacaoRequestDTO data,
             UriComponentsBuilder uriComponentsBuilder,
-            @RequestHeader("X-Idempotency-Key") String chaveIdempotencia) {
-        TransacaoResponseDTO response = transacaoService.realizarTransferencia(data, chaveIdempotencia);
+            @RequestHeader("X-Idempotency-Key") String chaveIdempotencia,
+            @AuthenticationPrincipal Usuario usuarioLogado) {
+        TransacaoResponseDTO response = transacaoService.realizarTransferencia(data, chaveIdempotencia, usuarioLogado);
 
         var uri = uriComponentsBuilder.path("/transacao/{id}").buildAndExpand(response.id()).toUri();
 
