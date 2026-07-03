@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface ContaRepository extends JpaRepository<Conta, Long> {
@@ -18,4 +19,5 @@ public interface ContaRepository extends JpaRepository<Conta, Long> {
     Optional<Conta> findByIdWithPessimisticLock(@Param("id") Long id);
 
     boolean existsByNumero(String numero);
+    Optional<Conta> findByUsuarioId(Long id);
 }

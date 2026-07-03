@@ -6,6 +6,10 @@ import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.service.TransacaoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -31,5 +35,12 @@ public class TransacaoController {
         var uri = uriComponentsBuilder.path("/transacao/{id}").buildAndExpand(response.id()).toUri();
 
         return ResponseEntity.created(uri).body(response);
+    }
+    @GetMapping("/extrato/{contaId}")
+    public ResponseEntity<Page<TransacaoResponseDTO>> extrato(@PathVariable Long contaId,
+                                                              @PageableDefault(size = 10, sort = {"dataHora"}, direction = Sort.Direction.DESC)Pageable pageable,
+                                                              @AuthenticationPrincipal Usuario usuarioLogado){
+        Page<TransacaoResponseDTO> data = transacaoService.extratos(contaId, pageable, usuarioLogado);
+        return ResponseEntity.ok(data);
     }
 }

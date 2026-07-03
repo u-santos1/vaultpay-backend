@@ -9,12 +9,16 @@ import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
 import com.vaultpay.api.repository.TransacaoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -90,5 +94,19 @@ public class TransacaoService {
         Transacao transacaoSalva = transacaoRepository.save(transacao);
 
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
+    }
+    @Transactional(readOnly = true)
+    public Page<TransacaoResponseDTO> extratos(Long contaId,
+                                               Pageable pageable,
+                                               Usuario usuarioLogado){
+        Conta conta = contaRepository.findByUsuarioId(contaId)
+                .orElseThrow(()-> new ContaNaoEncontradaException("Nao existe contas com esse Id"));
+
+        if(!conta.getUsuario().getId().equals(usuarioLogado.getId())){
+            throw new AcessoNegadoException("Usuario diferente da conta origem");
+        }
+        Page<Transacao> pagina = transacaoRepository.findByContaOrigemIdOrContaDestinoId(contaId, contaId, pageable);
+
+        return pagina.map(TransacaoResponseDTO::fromEntity);
     }
 }
