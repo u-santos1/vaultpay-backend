@@ -37,8 +37,7 @@ public class TransacaoController {
         return ResponseEntity.created(uri).body(response);
     }
     @GetMapping("/extrato/{contaId}")
-    public ResponseEntity<Page<TransacaoResponseDTO>> extrato(@PathVariable Long contaId,
-                                                              @PageableDefault(size = 10, sort = {"dataHora"}, direction = Sort.Direction.DESC)Pageable pageable,
+    public ResponseEntity<Page<TransacaoResponseDTO>> extrato(@PathVariable Long contaId, @PageableDefault(size = 10, sort = {"dataHora"}, direction = Sort.Direction.DESC)Pageable pageable,
                                                               @AuthenticationPrincipal Usuario usuarioLogado){
         Page<TransacaoResponseDTO> data = transacaoService.extratos(contaId, pageable, usuarioLogado);
         return ResponseEntity.ok(data);

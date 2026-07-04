@@ -52,7 +52,7 @@ var algoritmo = Algorithm.HMAC256(secret);
             DecodedJWT decodificador = verificador.verify(tokenJWT);
             return decodificador.getSubject();
         } catch (JWTVerificationException e){
-            throw new RuntimeException("Token invalido ou expirado", e);
+            throw new RuntimeException("Token invalido ou expirado ", e);
         }
     }
 
@@ -65,7 +65,7 @@ var algoritmo = Algorithm.HMAC256(secret);
                     .verify(tokenJWT)
                     .getIssuedAtAsInstant();
         } catch (JWTVerificationException e) {
-            throw new RuntimeException("Token invalido ou expirado", e);
+            throw new RuntimeException("Token invalido ou expirado ", e);
         }
     }
 

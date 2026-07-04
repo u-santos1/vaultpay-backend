@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +21,7 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityFilter extends OncePerRequestFilter {
     private final TokenService tokenService;
     private final UsuarioRepository usuarioRepository;
@@ -34,13 +36,13 @@ public class SecurityFilter extends OncePerRequestFilter {
 
                 var usuario = usuarioRepository.findByEmail(subject)
                         .orElseThrow(()-> new UsernameNotFoundException("Usuario nao encontrado"));
-                if (usuario.isEnabled() || usuario.isAccountNonLocked()){
+                if (!usuario.isEnabled() || !usuario.isAccountNonLocked()){
                     throw new TokenException("Usuario desativado ou bloquado");
                 }
                 if (usuario.getDataUltimaAlteracaoSenha() != null && issuedAt.isBefore(usuario.getDataUltimaAlteracaoSenha())){
                     throw new TokenException("Token revogado: a senha foi alterado recentemente.");
                 }
-                var authentication = new UsernamePasswordAuthenticationToken(usuario, null,usuario.getAuthorities());
+                var authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }catch (Exception e){
