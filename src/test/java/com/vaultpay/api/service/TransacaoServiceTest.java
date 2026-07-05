@@ -2,6 +2,7 @@ package com.vaultpay.api.service;
 
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
+import com.vaultpay.api.event.TransferenciaRealizadaEvent;
 import com.vaultpay.api.infra.exception.*;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Transacao;
@@ -11,9 +12,12 @@ import com.vaultpay.api.repository.TransacaoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +34,12 @@ public class TransacaoServiceTest {
 
     @Mock
     private ContaRepository contaRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Captor
+    private ArgumentCaptor<TransferenciaRealizadaEvent> argumentCaptor;
 
     @Mock
     private TransacaoRepository transacaoRepository;
@@ -90,7 +100,13 @@ public class TransacaoServiceTest {
         assertNotNull(response);
         assertEquals(new BigDecimal("400.00"), contaOrigem.getSaldo());
         assertEquals(new BigDecimal("200.00"), contaDestino.getSaldo());
-        
+
+        verify(eventPublisher, times(1)).publishEvent(argumentCaptor.capture());
+        TransferenciaRealizadaEvent eventoCapturado = argumentCaptor.getValue();
+
+        assertEquals(new BigDecimal("100.00"), eventoCapturado.transacao().getValor());
+        assertEquals(1L, eventoCapturado.transacao().getContaOrigem().getId());
+
         verify(contaRepository, times(1)).save(contaOrigem);
         verify(contaRepository, times(1)).save(contaDestino);
         verify(transacaoRepository, times(1)).save(any(Transacao.class));

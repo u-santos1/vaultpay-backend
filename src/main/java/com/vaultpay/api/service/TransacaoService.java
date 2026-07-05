@@ -2,6 +2,7 @@ package com.vaultpay.api.service;
 
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
+import com.vaultpay.api.event.TransferenciaRealizadaEvent;
 import com.vaultpay.api.infra.exception.*;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Transacao;
@@ -9,6 +10,9 @@ import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
 import com.vaultpay.api.repository.TransacaoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,8 +30,10 @@ public class TransacaoService {
 
     private final ContaRepository contaRepository;
     private final TransacaoRepository transacaoRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
+    @CacheEvict(value = "extrato", allEntries = true)
     public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia, Usuario usuarioLogado) {
 
         if (data.idContaOrigem().equals(data.idContaDestino())) {
@@ -92,9 +98,11 @@ public class TransacaoService {
                 .build();
 
         Transacao transacaoSalva = transacaoRepository.save(transacao);
+        eventPublisher.publishEvent(new TransferenciaRealizadaEvent(transacaoSalva));
 
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
     }
+    @Cacheable(value = "extrato", key = "#conta + '-' + #usuarioLogado.id + '-' + #pageable.pageNumber")
     @Transactional(readOnly = true)
     public Page<TransacaoResponseDTO> extratos(Long contaId,
                                                Pageable pageable,

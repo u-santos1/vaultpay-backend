@@ -4,6 +4,9 @@ import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
 import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.service.TransacaoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,12 +27,16 @@ public class TransacaoController {
 
     private final TransacaoService transacaoService;
 
+    @Operation(summary = "Realiza uma transferência", description = "Transfere um valor entre duas contas ativas de forma segura e assíncrona.")
+    @ApiResponse(responseCode = "201", description = "Transferência realizada com sucesso")
+    @ApiResponse(responseCode = "400", description = "Regra de negócio violada (ex: Saldo Insuficiente)")
+    @ApiResponse(responseCode = "403", description = "Acesso Negado (Token inválido ou conta não pertence ao usuário)")
     @PostMapping
     public ResponseEntity<TransacaoResponseDTO> transferir(
             @RequestBody @Valid TransacaoRequestDTO data,
             UriComponentsBuilder uriComponentsBuilder,
             @RequestHeader("X-Idempotency-Key") String chaveIdempotencia,
-            @AuthenticationPrincipal Usuario usuarioLogado) {
+            @Parameter(hidden = true) @AuthenticationPrincipal Usuario usuarioLogado) {
         TransacaoResponseDTO response = transacaoService.realizarTransferencia(data, chaveIdempotencia, usuarioLogado);
 
         var uri = uriComponentsBuilder.path("/transacao/{id}").buildAndExpand(response.id()).toUri();
@@ -38,7 +45,7 @@ public class TransacaoController {
     }
     @GetMapping("/extrato/{contaId}")
     public ResponseEntity<Page<TransacaoResponseDTO>> extrato(@PathVariable Long contaId, @PageableDefault(size = 10, sort = {"dataHora"}, direction = Sort.Direction.DESC)Pageable pageable,
-                                                              @AuthenticationPrincipal Usuario usuarioLogado){
+                                                              @Parameter(hidden = true) @AuthenticationPrincipal Usuario usuarioLogado){
         Page<TransacaoResponseDTO> data = transacaoService.extratos(contaId, pageable, usuarioLogado);
         return ResponseEntity.ok(data);
     }
