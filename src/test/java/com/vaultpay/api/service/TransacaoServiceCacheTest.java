@@ -6,13 +6,8 @@ import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
 import com.vaultpay.api.repository.TransacaoRepository;
 import com.vaultpay.api.repository.UsuarioRepository;
-import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -73,4 +68,3 @@ public class TransacaoServiceCacheTest {
     }
 
 }
-       0-9 8765y43
