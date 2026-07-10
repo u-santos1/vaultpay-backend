@@ -1,0 +1,33 @@
+name: VaultPay CI
+
+# Define quando este workflow será executado
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Baixa o código do repositório
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      # 2. Prepara o ambiente Java (Assumindo JDK 17, altere se usar o 21)
+      - name: Setup Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven # Faz cache das dependências para rodar mais rápido nas próximas vezes
+
+      # 3. Roda os testes e compila o projeto
+      - name: Build and Test com Maven
+        run: mvn clean verify
+
+      # 4. (Opcional) Faz o build da imagem Docker apenas para garantir que o Dockerfile está saudável
+      - name: Build Docker Image
+        run: docker build -t vaultpay-backend:test .

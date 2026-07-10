@@ -1,12 +1,16 @@
 package com.vaultpay.api.repository;
 
+import com.vaultpay.api.StatusTransacao;
 import com.vaultpay.api.model.Transacao;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Repository
@@ -18,4 +22,11 @@ public interface TransacaoRepository extends JpaRepository<Transacao, UUID> {
             Long contaOrigemId, Long contaDestinoId, Pageable pageable);
 
 
+    @Modifying
+    @Query("UPDATE Transacao t SET t.status = :novoStatus WHERE t.status = :statusAntigo AND t.dataHora <= :limiteDeTempo")
+    int cancelarTransacoesAntigas(
+            @Param("statusAntigo") StatusTransacao statusAntigo,
+            @Param("novoStatus") StatusTransacao novoStatus,
+            @Param("limiteDeTempo") LocalDateTime limiteDeTempo
+    );
 }

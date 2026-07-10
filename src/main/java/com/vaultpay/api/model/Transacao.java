@@ -1,5 +1,7 @@
 package com.vaultpay.api.model;
 
+import com.vaultpay.api.StatusTransacao;
+import com.vaultpay.api.TipoTransacao;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -30,6 +32,14 @@ public class Transacao {
 
     @Column(nullable = false)
     private BigDecimal valor;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TipoTransacao tipo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusTransacao status;
 
     @Column(nullable = false)
     private LocalDateTime dataHora;

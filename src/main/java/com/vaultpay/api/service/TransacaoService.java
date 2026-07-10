@@ -102,13 +102,13 @@ public class TransacaoService {
 
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
     }
-    @Cacheable(value = "extrato", key = "#conta + '-' + #usuarioLogado.id + '-' + #pageable.pageNumber")
+    @Cacheable(value = "extrato", key = "#contaId + '-' + #usuarioLogado.id + '-' + #pageable.pageNumber")
     @Transactional(readOnly = true)
     public Page<TransacaoResponseDTO> extratos(Long contaId,
                                                Pageable pageable,
                                                Usuario usuarioLogado){
-        Conta conta = contaRepository.findByUsuarioId(contaId)
-                .orElseThrow(()-> new ContaNaoEncontradaException("Nao existe contas com esse Id"));
+        Conta conta = contaRepository.findById(contaId)
+                .orElseThrow(()-> new ContaNaoEncontradaException("Não existe conta com esse Id."));
 
         if(!conta.getUsuario().getId().equals(usuarioLogado.getId())){
             throw new AcessoNegadoException("Usuario diferente da conta origem");
