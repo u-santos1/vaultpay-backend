@@ -1,5 +1,7 @@
 package com.vaultpay.api.controller;
 
+import com.vaultpay.api.dtos.DepositoRequestDTO;
+import com.vaultpay.api.dtos.SaqueRequestDTO;
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
 import com.vaultpay.api.model.Usuario;
@@ -48,5 +50,30 @@ public class TransacaoController {
                                                               @Parameter(hidden = true) @AuthenticationPrincipal Usuario usuarioLogado){
         Page<TransacaoResponseDTO> data = transacaoService.extratos(contaId, pageable, usuarioLogado);
         return ResponseEntity.ok(data);
+    }
+
+    @Operation(summary = "Realiza um depósito", description = "Adiciona fundos a uma conta ativa.")
+    @ApiResponse(responseCode = "201", description = "Depósito realizado com sucesso")
+    @PostMapping("/deposito")
+    public ResponseEntity<TransacaoResponseDTO> deposito(
+            @RequestBody @Valid DepositoRequestDTO data,
+            UriComponentsBuilder uriComponentsBuilder,
+            @RequestHeader("X-Idempotency-Key") String chaveIdempotencia) {
+        TransacaoResponseDTO response = transacaoService.realizarDeposito(data, chaveIdempotencia);
+        var uri = uriComponentsBuilder.path("/transacao/{id}").buildAndExpand(response.id()).toUri();
+        return ResponseEntity.created(uri).body(response);
+    }
+
+    @Operation(summary = "Realiza um saque", description = "Remove fundos de uma conta ativa, respeitando saldo e limite.")
+    @ApiResponse(responseCode = "201", description = "Saque realizado com sucesso")
+    @PostMapping("/saque")
+    public ResponseEntity<TransacaoResponseDTO> saque(
+            @RequestBody @Valid SaqueRequestDTO data,
+            UriComponentsBuilder uriComponentsBuilder,
+            @RequestHeader("X-Idempotency-Key") String chaveIdempotencia,
+            @Parameter(hidden = true) @AuthenticationPrincipal Usuario usuarioLogado) {
+        TransacaoResponseDTO response = transacaoService.realizarSaque(data, chaveIdempotencia, usuarioLogado);
+        var uri = uriComponentsBuilder.path("/transacao/{id}").buildAndExpand(response.id()).toUri();
+        return ResponseEntity.created(uri).body(response);
     }
 }

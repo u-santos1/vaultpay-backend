@@ -1,5 +1,9 @@
 package com.vaultpay.api.service;
 
+import com.vaultpay.api.StatusTransacao;
+import com.vaultpay.api.TipoTransacao;
+import com.vaultpay.api.dtos.DepositoRequestDTO;
+import com.vaultpay.api.dtos.SaqueRequestDTO;
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
 import com.vaultpay.api.event.TransferenciaRealizadaEvent;
@@ -95,6 +99,8 @@ public class TransacaoService {
                 .valor(data.valor())
                 .chaveIdempotencia(chaveIdempotencia)
                 .dataHora(LocalDateTime.now())
+                .tipo(TipoTransacao.TRANSFERENCIA)
+                .status(StatusTransacao.CONCLUIDA)
                 .build();
 
         Transacao transacaoSalva = transacaoRepository.save(transacao);
@@ -116,5 +122,86 @@ public class TransacaoService {
         Page<Transacao> pagina = transacaoRepository.findByContaOrigemIdOrContaDestinoId(contaId, contaId, pageable);
 
         return pagina.map(TransacaoResponseDTO::fromEntity);
+    }
+
+    @Transactional
+    @CacheEvict(value = "extrato", allEntries = true)
+    public TransacaoResponseDTO realizarDeposito(DepositoRequestDTO data, String chaveIdempotencia) {
+        if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor do depósito deve ser maior que zero.");
+        }
+        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)){
+            throw new TransacaoDuplicadaException("Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
+        }
+
+        Conta conta = contaRepository.findByIdWithPessimisticLock(data.idConta())
+                .orElseThrow(() -> new ContaNaoEncontradaException("Conta não encontrada: " + data.idConta()));
+
+        if (!conta.getAtivo()) {
+            throw new ContaInativaException("Operação cancelada: A conta está inativa.");
+        }
+
+        conta.setSaldo(conta.getSaldo().add(data.valor()));
+        contaRepository.save(conta);
+
+        Transacao transacao = Transacao.builder()
+                .contaOrigem(conta)
+                .contaDestino(conta)
+                .valor(data.valor())
+                .chaveIdempotencia(chaveIdempotencia)
+                .dataHora(LocalDateTime.now())
+                .tipo(TipoTransacao.DEPOSITO)
+                .status(StatusTransacao.CONCLUIDA)
+                .build();
+
+        Transacao transacaoSalva = transacaoRepository.save(transacao);
+
+        return TransacaoResponseDTO.fromEntity(transacaoSalva);
+    }
+
+    @Transactional
+    @CacheEvict(value = "extrato", allEntries = true)
+    public TransacaoResponseDTO realizarSaque(SaqueRequestDTO data, String chaveIdempotencia, Usuario usuarioLogado) {
+        if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor do saque deve ser maior que zero.");
+        }
+        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)){
+            throw new TransacaoDuplicadaException("Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
+        }
+
+        Conta conta = contaRepository.findByIdWithPessimisticLock(data.idConta())
+                .orElseThrow(() -> new ContaNaoEncontradaException("Conta não encontrada: " + data.idConta()));
+
+        if (!conta.getUsuario().getId().equals(usuarioLogado.getId())){
+            throw new AcessoNegadoException("Usuario diferente da conta");
+        }
+
+        if (!conta.getAtivo()) {
+            throw new ContaInativaException("Operação cancelada: A conta está inativa.");
+        }
+
+        if (conta.getSaldo().compareTo(data.valor()) < 0) {
+            throw new SaldoInsuficienteException("Saldo insuficiente para saque.");
+        }
+        if (conta.getLimiteTransacao() != null && data.valor().compareTo(conta.getLimiteTransacao()) > 0){
+            throw new LimiteTransacionalExcedidoException("O valor do saque excede o limite permitido.");
+        }
+
+        conta.setSaldo(conta.getSaldo().subtract(data.valor()));
+        contaRepository.save(conta);
+
+        Transacao transacao = Transacao.builder()
+                .contaOrigem(conta)
+                .contaDestino(conta)
+                .valor(data.valor())
+                .chaveIdempotencia(chaveIdempotencia)
+                .dataHora(LocalDateTime.now())
+                .tipo(TipoTransacao.SAQUE)
+                .status(StatusTransacao.CONCLUIDA)
+                .build();
+
+        Transacao transacaoSalva = transacaoRepository.save(transacao);
+
+        return TransacaoResponseDTO.fromEntity(transacaoSalva);
     }
 }

@@ -56,7 +56,7 @@ public class TransacaoServiceCacheTest {
         PageRequest page = PageRequest.of(0, 10);
         Page<Transacao> pagenaVazia = new PageImpl<>(List.of());
 
-        when(contaRepository.findByUsuarioId(contaId))
+        when(contaRepository.findById(contaId))
                 .thenReturn(Optional.of(conta));
         when(transacaoRepository.findByContaOrigemIdOrContaDestinoId(
                 eq(contaId), eq(contaId), any()

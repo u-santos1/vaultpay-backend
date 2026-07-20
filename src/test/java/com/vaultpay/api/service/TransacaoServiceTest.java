@@ -1,5 +1,7 @@
 package com.vaultpay.api.service;
 
+import com.vaultpay.api.dtos.DepositoRequestDTO;
+import com.vaultpay.api.dtos.SaqueRequestDTO;
 import com.vaultpay.api.dtos.TransacaoRequestDTO;
 import com.vaultpay.api.dtos.TransacaoResponseDTO;
 import com.vaultpay.api.event.TransferenciaRealizadaEvent;
@@ -238,5 +240,61 @@ public class TransacaoServiceTest {
 
         assertTrue(exception.getMessage().contains("já foi processada"));
         verify(contaRepository, never()).findByIdWithPessimisticLock(anyLong());
+    }
+
+    @Test
+    void realizarDeposito_DeveOcorrerComSucesso() {
+        DepositoRequestDTO request = new DepositoRequestDTO(1L, new BigDecimal("100.00"));
+        String chave = UUID.randomUUID().toString();
+
+        when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
+
+        Transacao transacao = Transacao.builder()
+                .id(UUID.randomUUID())
+                .contaOrigem(contaOrigem)
+                .contaDestino(contaOrigem)
+                .valor(request.valor())
+                .dataHora(LocalDateTime.now())
+                .chaveIdempotencia(chave)
+                .build();
+
+        when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
+
+        TransacaoResponseDTO response = transacaoService.realizarDeposito(request, chave);
+
+        assertNotNull(response);
+        assertEquals(new BigDecimal("600.00"), contaOrigem.getSaldo()); // 500 + 100
+
+        verify(contaRepository, times(1)).save(contaOrigem);
+        verify(transacaoRepository, times(1)).save(any(Transacao.class));
+    }
+
+    @Test
+    void realizarSaque_DeveOcorrerComSucesso() {
+        SaqueRequestDTO request = new SaqueRequestDTO(1L, new BigDecimal("100.00"));
+        String chave = UUID.randomUUID().toString();
+        Usuario usuarioLogado = new Usuario();
+        usuarioLogado.setId(1L);
+
+        when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
+
+        Transacao transacao = Transacao.builder()
+                .id(UUID.randomUUID())
+                .contaOrigem(contaOrigem)
+                .contaDestino(contaOrigem)
+                .valor(request.valor())
+                .dataHora(LocalDateTime.now())
+                .chaveIdempotencia(chave)
+                .build();
+
+        when(transacaoRepository.save(any(Transacao.class))).thenReturn(transacao);
+
+        TransacaoResponseDTO response = transacaoService.realizarSaque(request, chave, usuarioLogado);
+
+        assertNotNull(response);
+        assertEquals(new BigDecimal("400.00"), contaOrigem.getSaldo()); // 500 - 100
+
+        verify(contaRepository, times(1)).save(contaOrigem);
+        verify(transacaoRepository, times(1)).save(any(Transacao.class));
     }
 }
