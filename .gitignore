@@ -32,3 +32,8 @@ build/
 ### VS Code ###
 .vscode/
 .env
+
+### Temporary / Agent files ###
+.agent/
+ecc-temp/
+*.txt
