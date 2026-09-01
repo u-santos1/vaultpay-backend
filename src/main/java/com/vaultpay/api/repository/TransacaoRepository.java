@@ -15,18 +15,15 @@ import java.util.UUID;
 
 @Repository
 public interface TransacaoRepository extends JpaRepository<Transacao, UUID> {
-    boolean existsByChaveIdempotencia(String chave);
+        boolean existsByChaveIdempotencia(String chave);
 
+        Page<Transacao> findByContaOrigemIdOrContaDestinoId(
+                        Long contaOrigemId, Long contaDestinoId, Pageable pageable);
 
-    Page<Transacao> findByContaOrigemIdOrContaDestinoId(
-            Long contaOrigemId, Long contaDestinoId, Pageable pageable);
-
-
-    @Modifying
-    @Query("UPDATE Transacao t SET t.status = :novoStatus WHERE t.status = :statusAntigo AND t.dataHora <= :limiteDeTempo")
-    int cancelarTransacoesAntigas(
-            @Param("statusAntigo") StatusTransacao statusAntigo,
-            @Param("novoStatus") StatusTransacao novoStatus,
-            @Param("limiteDeTempo") LocalDateTime limiteDeTempo
-    );
+        @Modifying
+        @Query("UPDATE Transacao t SET t.status = :novoStatus WHERE t.status = :statusAntigo AND t.dataHora <= :limiteDeTempo")
+        int cancelarTransacoesAntigas(
+                        @Param("statusAntigo") StatusTransacao statusAntigo,
+                        @Param("novoStatus") StatusTransacao novoStatus,
+                        @Param("limiteDeTempo") LocalDateTime limiteDeTempo);
 }
