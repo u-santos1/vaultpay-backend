@@ -1,5 +1,8 @@
 # 🏦 VaultPay API — Núcleo de Carteira Digital e Transações
 
+[![Deploy on Render](https://img.shields.io/badge/Deploy-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://vaultpay-backend-fur8.onrender.com/swagger-ui/index.html)
+[![Swagger](https://img.shields.io/badge/Swagger-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://vaultpay-backend-fur8.onrender.com/swagger-ui/index.html)
+
 ![Java](https://img.shields.io/badge/Java%2021-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot%203-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
 ![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=for-the-badge&logo=spring-security&logoColor=white)
@@ -7,6 +10,8 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white)
 ![Flyway](https://img.shields.io/badge/Flyway-CC0200?style=for-the-badge&logo=flyway&logoColor=white)
+
+> 🟢 **API AO VIVO:** [Teste a API agora mesmo através da documentação do Swagger clicando aqui](https://vaultpay-backend-fur8.onrender.com/swagger-ui/index.html). O deploy foi feito no Render (pode demorar alguns segundos para "acordar" no primeiro acesso).
 
 O **VaultPay API** é uma API RESTful desenvolvida do zero para simular o núcleo (core banking) de uma carteira digital, resolvendo problemas críticos como **concorrência**, **condições de corrida** e **integridade de dados**.
 
@@ -70,18 +75,21 @@ git clone https://github.com/u-santos1/vaultpay-backend.git
 cd vaultpay-backend
 ```
 
-2. **Inicie o Banco de Dados (PostgreSQL) com Docker**
+2. **Opção 1: Rodar tudo 100% via Docker (Recomendado)**
 ```bash
-docker-compose up -d
+# Isso vai compilar a API, subir o Banco de Dados e conectar os dois automaticamente
+docker-compose up -d --build
 ```
+> A API estará rodando em: `http://localhost:8080/swagger-ui/index.html`
 
-3. **Execute a aplicação via Maven**
+3. **Opção 2: Rodar Banco via Docker e API via Maven (Modo Dev)**
 ```bash
+# Suba apenas o banco de dados
+docker-compose up db -d
+
+# Execute a aplicação via Maven
 mvn spring-boot:run
 ```
-> O Flyway criará automaticamente todas as tabelas na inicialização.
-
-A API estará rodando em: `http://localhost:8080`
 
 ---
 
