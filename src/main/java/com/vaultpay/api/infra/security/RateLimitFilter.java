@@ -21,8 +21,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        String uri = request.getRequestURI();
+        if (uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String ip = getClientIp(request);
-        Bucket bucket = rateLimitingService. resolveBucket(ip);
+        Bucket bucket = rateLimitingService.resolveBucket(ip);
         if(bucket.tryConsume(1)){
             filterChain.doFilter(request, response);
         }
