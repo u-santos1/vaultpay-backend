@@ -18,7 +18,9 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
+
 
 @ExtendWith(MockitoExtension.class)
 public class ContaServiceTest {
@@ -78,5 +80,44 @@ public class ContaServiceTest {
         assertEquals("Ja existe uma conta registrada com este numero", exception.getMessage());
         verify(contaRepository, times(1)).existsByNumero("12345-6");
         verify(contaRepository, never()).save(any(Conta.class));
+    }
+
+    @Test
+    void criarConta_DeveLancarExcecaoQuandoUsuarioNaoForEncontrado() {
+        when(contaRepository.existsByNumero("12345-6")).thenReturn(false);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            contaService.CriarConta(contaRequestDTO);
+        });
+
+        assertEquals("Não é possível criar a conta: Usuário não encontrado.", exception.getMessage());
+        verify(contaRepository, never()).save(any(Conta.class));
+    }
+
+    @Test
+    void criarConta_DeveDefinirLimiteTransacaoPadraoQuandoNaoCriado() {
+        when(contaRepository.existsByNumero("12345-6")).thenReturn(false);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(contaRepository.save(any(Conta.class))).thenReturn(conta);
+
+        contaService.CriarConta(contaRequestDTO);
+
+        // Captura a conta salva para verificar o limite padrão
+        verify(contaRepository).save(argThat(c ->
+                c.getLimiteTransacao() != null &&
+                c.getLimiteTransacao().compareTo(new BigDecimal("10000.00")) == 0
+        ));
+    }
+
+    @Test
+    void criarConta_DeveDefinirContaComoAtivaAoCriar() {
+        when(contaRepository.existsByNumero("12345-6")).thenReturn(false);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(contaRepository.save(any(Conta.class))).thenReturn(conta);
+
+        contaService.CriarConta(contaRequestDTO);
+
+        verify(contaRepository).save(argThat(Conta::getAtivo));
     }
 }

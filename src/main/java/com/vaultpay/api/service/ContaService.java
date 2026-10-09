@@ -18,14 +18,14 @@ public class ContaService {
     private final ContaRepository contaRepository;
     private final UsuarioRepository usuarioRepository;
 
-    public ContaResponse CriarConta(ContaRequestDTO data){
-        if(contaRepository.existsByNumero(data.numero())){
+    public ContaResponse CriarConta(ContaRequestDTO data) {
+        if (contaRepository.existsByNumero(data.numero())) {
             throw new IllegalArgumentException("Ja existe uma conta registrada com este numero");
         }
         Usuario usuario = usuarioRepository.findById(data.usuarioId())
-                .orElseThrow(()-> new IllegalArgumentException("Não é possível criar a conta: Usuário não encontrado."));
-        Conta novaConta = Conta.builder().
-                numero(data.numero())
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Não é possível criar a conta: Usuário não encontrado."));
+        Conta novaConta = Conta.builder().numero(data.numero())
                 .saldo(data.saldo())
                 .usuario(usuario)
                 .limiteTransacao(new BigDecimal("10000.00"))

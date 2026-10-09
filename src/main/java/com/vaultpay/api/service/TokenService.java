@@ -6,6 +6,7 @@ import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.JWTVerifier;
+import com.vaultpay.api.infra.exception.TokenException;
 import com.vaultpay.api.model.Usuario;
 import jakarta.annotation.PostConstruct;
 
@@ -30,20 +31,21 @@ public class TokenService {
         }
     }
 
-    public String gerarToken(Usuario usuario){
-        try{
-var algoritmo = Algorithm.HMAC256(secret);
+    public String gerarToken(Usuario usuario) {
+        try {
+            var algoritmo = Algorithm.HMAC256(secret);
             return JWT.create()
                     .withIssuer("API VAULTPAY")
                     .withSubject(usuario.getEmail())
+                    .withIssuedAt(Instant.now())
                     .withExpiresAt(dataExpiracao())
                     .sign(algoritmo);
         } catch (JWTCreationException exception) {
-            throw new RuntimeException("Erro ao gerar token jwt", exception);
+            throw new TokenException("Erro ao gerar token jwt", exception);
         }
     }
 
-    public String getSubject(String tokenJWT){
+    public String getSubject(String tokenJWT) {
         try {
             var algoritmo = Algorithm.HMAC256(secret);
             JWTVerifier verificador = JWT.require(algoritmo)
@@ -51,12 +53,12 @@ var algoritmo = Algorithm.HMAC256(secret);
                     .build();
             DecodedJWT decodificador = verificador.verify(tokenJWT);
             return decodificador.getSubject();
-        } catch (JWTVerificationException e){
-            throw new RuntimeException("Token invalido ou expirado ", e);
+        } catch (JWTVerificationException e) {
+            throw new TokenException("Token invalido ou expirado ", e);
         }
     }
 
-    public Instant getIssuedAt(String tokenJWT){
+    public Instant getIssuedAt(String tokenJWT) {
         try {
             var algoritmo = Algorithm.HMAC256(secret);
             return JWT.require(algoritmo)
@@ -65,7 +67,7 @@ var algoritmo = Algorithm.HMAC256(secret);
                     .verify(tokenJWT)
                     .getIssuedAtAsInstant();
         } catch (JWTVerificationException e) {
-            throw new RuntimeException("Token invalido ou expirado ", e);
+            throw new TokenException("Token invalido ou expirado ", e);
         }
     }
 

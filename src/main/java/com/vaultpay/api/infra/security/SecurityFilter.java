@@ -27,37 +27,43 @@ public class SecurityFilter extends OncePerRequestFilter {
     private final UsuarioRepository usuarioRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException{
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         try {
             var tokenJWT = recuperarToken(request);
-            if (tokenJWT != null){
+            if (tokenJWT != null) {
                 var subject = tokenService.getSubject(tokenJWT);
                 var issuedAt = tokenService.getIssuedAt(tokenJWT);
 
                 var usuario = usuarioRepository.findByEmail(subject)
-                        .orElseThrow(()-> new UsernameNotFoundException("Usuario nao encontrado"));
-                if (!usuario.isEnabled() || !usuario.isAccountNonLocked()){
+                        .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado"));
+                if (!usuario.isEnabled() || !usuario.isAccountNonLocked()) {
                     throw new TokenException("Usuario desativado ou bloquado");
                 }
-                if (usuario.getDataUltimaAlteracaoSenha() != null && issuedAt.isBefore(usuario.getDataUltimaAlteracaoSenha())){
+                if (usuario.getDataUltimaAlteracaoSenha() != null
+                        && issuedAt.isBefore(usuario.getDataUltimaAlteracaoSenha())) {
                     throw new TokenException("Token revogado: a senha foi alterado recentemente.");
                 }
                 var authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             SecurityContextHolder.clearContext();
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            log.warn("Falha na autenticação: {}", e.getMessage());
             response.getWriter().write("Token invalido ou expirado");
             return;
-        }filterChain.doFilter(request, response);
+        }
+        filterChain.doFilter(request, response);
 
     }
-    private String recuperarToken(HttpServletRequest request){
+
+    private String recuperarToken(HttpServletRequest request) {
         var authorizationHeader = request.getHeader("Authorization");
-        if (authorizationHeader != null && authorizationHeader.toLowerCase().startsWith("bearer ")){
+        if (authorizationHeader != null && authorizationHeader.toLowerCase().startsWith("bearer ")) {
             return authorizationHeader.substring(7).trim();
-        }return null;
+        }
+        return null;
 
     }
 }

@@ -1,24 +1,23 @@
-# Build Stage
-FROM maven:3.9.6-eclipse-temurin-21-alpine AS builder
+# Etapa 1: Build (Compilar o código)
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Copia o pom.xml e baixa as dependências (cache)
+# Copia os arquivos do projeto para dentro do container
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copia o código fonte e faz o build do projeto
 COPY src ./src
+
+# Roda o maven para compilar ignorando os testes
 RUN mvn clean package -DskipTests
 
-# Run Stage
+# Etapa 2: Imagem final (Apenas para rodar)
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copia o .jar gerado no stage anterior
-COPY --from=builder /app/target/*.jar app.jar
+# Copia O ARQUIVO .jar da Etapa 1 para esta imagem final
+COPY --from=build /app/target/*.jar api.jar
 
-# Expõe a porta padrão do Spring Boot
+# Expõe a porta que a API usa
 EXPOSE 8080
 
-# Comando para executar a aplicação
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Comando para iniciar a aplicação
+ENTRYPOINT ["java", "-jar", "api.jar"]
