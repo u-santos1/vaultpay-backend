@@ -1,7 +1,9 @@
 package com.vaultpay.api.service;
 
 import com.vaultpay.api.dtos.ContaRequestDTO;
+import com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO;
 import com.vaultpay.api.dtosResponse.ContaResponse;
+import com.vaultpay.api.infra.exception.ContaNaoEncontradaException;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
@@ -36,9 +38,9 @@ public class ContaService {
         return ContaResponse.dto(contaSalvar);
     }
 
-    public com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO buscarMinhaConta(Long usuarioId) {
+    public ContaDetalhesResponseDTO buscarMinhaConta(Long usuarioId) {
         Conta conta = contaRepository.findByUsuarioId(usuarioId)
-                .orElseThrow(() -> new com.vaultpay.api.infra.exception.ContaNaoEncontradaException("Nenhuma conta encontrada para o usuario autenticado."));
-        return com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO.fromEntity(conta);
+                .orElseThrow(() -> new ContaNaoEncontradaException("Nenhuma conta encontrada para o usuario autenticado."));
+        return ContaDetalhesResponseDTO.fromEntity(conta);
     }
 }

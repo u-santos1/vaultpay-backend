@@ -2,6 +2,7 @@ package com.vaultpay.api.controller;
 
 import com.vaultpay.api.PerfilDeAcesso;
 import com.vaultpay.api.dtos.ContaRequestDTO;
+import com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO;
 import com.vaultpay.api.dtosResponse.ContaResponse;
 import com.vaultpay.api.infra.exception.AcessoNegadoException;
 import com.vaultpay.api.model.Usuario;
@@ -12,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,9 +43,9 @@ public class ContaController {
         return ResponseEntity.created(uri).body(dto);
     }
 
-    @org.springframework.web.bind.annotation.GetMapping("/me")
+    @GetMapping("/me")
     @SecurityRequirement(name = "bearer-key")
-    public ResponseEntity<com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO> minhaConta(
+    public ResponseEntity<ContaDetalhesResponseDTO> minhaConta(
             @Parameter(hidden = true) @AuthenticationPrincipal Usuario usuarioLogado
     ) {
         var response = contaService.buscarMinhaConta(usuarioLogado.getId());
