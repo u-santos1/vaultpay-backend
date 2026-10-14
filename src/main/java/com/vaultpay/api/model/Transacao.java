@@ -46,6 +46,4 @@ public class Transacao {
 
     @Column(unique = true, nullable = false)
     private String chaveIdempotencia;
-
-
 }

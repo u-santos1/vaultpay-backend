@@ -22,6 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/transacao")
+@io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearer-key")
 @RequiredArgsConstructor
 public class TransacaoController {
 

@@ -12,6 +12,7 @@
 ![Flyway](https://img.shields.io/badge/Flyway-CC0200?style=for-the-badge&logo=flyway&logoColor=white)
 
 > 🟢 **API AO VIVO:** [Teste a API agora mesmo através da documentação do Swagger clicando aqui](https://vaultpay-backend-fur8.onrender.com/swagger-ui/index.html). O deploy foi feito no Render (pode demorar alguns segundos para "acordar" no primeiro acesso).
+> Para testar os endpoints protegidos: faça `POST /login`, copie o `token` e clique em **Authorize** no topo do Swagger.
 
 O **VaultPay API** é uma API RESTful desenvolvida do zero para simular o núcleo (core banking) de uma carteira digital, resolvendo problemas críticos como **concorrência**, **condições de corrida** e **integridade de dados**.
 
@@ -21,7 +22,7 @@ O **VaultPay API** é uma API RESTful desenvolvida do zero para simular o núcle
 - [Funcionalidades](#-funcionalidades)
 - [Tecnologias](#️-tecnologias-utilizadas)
 - [Desafios Técnicos Resolvidos](#️-desafios-técnicos-resolvidos-engenharia--appsec)
-- [Como Executar o Projeto](#-como-executar-o-projeto)
+- [Como Executar o Projeto](#️-como-executar-o-projeto)
 - [Endpoints Principais](#-endpoints-principais)
 - [Autor](#-autor)
 
@@ -29,34 +30,42 @@ O **VaultPay API** é uma API RESTful desenvolvida do zero para simular o núcle
 
 ## 🚀 Funcionalidades
 
-- **Abertura de Conta Segura:** A criação de um utilizador gera instantaneamente uma `Conta` associada com saldo zero, garantindo a atomicidade da operação.
-- **Transferências Financeiras (ACID):** Movimentação de saldos entre contas garantindo que o dinheiro nunca se perde nem é duplicado em caso de falha (Rollbacks automáticos).
-- **Extrato Imutável (Ledger):** Registro histórico de todas as transações (Depósitos e Transferências) utilizando identificadores únicos (UUIDs). Nenhuma transação pode ser editada ou apagada.
-- **Segurança de Acesso e RBAC:** Autenticação via JWT (JSON Web Tokens) com controle de perfis de acesso, onde apenas os donos das contas podem transferir seus fundos.
+- **Abertura de Conta Segura:** cada usuário possui no máximo uma conta (relação 1:1 garantida por constraint no banco). A conta nasce **sempre com saldo zero** e usuários comuns só podem abrir conta para si mesmos.
+- **Transferências Financeiras (ACID):** movimentação de saldos entre contas garantindo que o dinheiro nunca se perde nem é duplicado em caso de falha (rollback automático).
+- **Depósitos e Saques:** o depósito é restrito ao perfil `ADMIN`; o saque exige que a conta pertença ao usuário logado e respeita saldo e limite por transação.
+- **Idempotência:** o header `X-Idempotency-Key` evita que uma operação repetida (ex.: retentativa de rede) seja processada duas vezes.
+- **Extrato Imutável (Ledger):** histórico paginado de transações identificadas por UUID. Nenhuma transação é editada ou apagada.
+- **Segurança de Acesso e RBAC:** autenticação via JWT com perfis `ADMIN` e `USER`; apenas o dono da conta movimenta seus fundos.
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
 - **Linguagem:** Java 21 (com Virtual Threads habilitadas)
-- **Framework:** Spring Boot 3
-- **Segurança:** Spring Security & JWT
+- **Framework:** Spring Boot 3.5
+- **Segurança:** Spring Security & JWT (java-jwt)
 - **Banco de Dados:** PostgreSQL
-- **Infraestrutura:** Docker (Containerização)
+- **Infraestrutura:** Docker (build multi-stage) e Docker Compose
 - **Migrations:** Flyway
-- **Rate Limiting:** Bucket4j & Caffeine Cache
+- **Rate Limiting:** Bucket4j (algoritmo Token Bucket, em memória)
+- **Documentação:** Swagger / OpenAPI (springdoc)
+- **Testes:** JUnit 5, Mockito e H2
+- **CI:** GitHub Actions (build, testes e build da imagem Docker)
 
 ---
 
 ## 🛡️ Desafios Técnicos Resolvidos (Engenharia & AppSec)
 
-Além de manter a robustez de segurança contra vulnerabilidades (OWASP), este projeto implementa soluções vitais para *fintechs*:
-
-- **Defesa contra Race Conditions (Pessimistic Locking):** Implementação de `@Lock(LockModeType.PESSIMISTIC_WRITE)` no banco de dados. Evita que duas transferências simultâneas na mesma conta leiam o mesmo saldo base, prevenindo a duplicação indevida de fundos.
-- **Transações ACID Rigorosas:** Uso profundo de `@Transactional` nos serviços financeiros. Se o débito na origem ocorrer mas o crédito no destino falhar, toda a operação é revertida instantaneamente.
-- **Alta Concorrência com Virtual Threads:** Configuração para utilizar Virtual Threads do Java 21 (`spring.threads.virtual.enabled=true`), permitindo milhares de transações simultâneas com baixo consumo de RAM.
-- **Proteção contra Força Bruta e Spam:** Rate Limiting granular isolando endpoints críticos, impedindo ataques de negação de serviço.
-- **Tratamento de Exceções Semânticas:** Respostas HTTP claras (ex: `422 Unprocessable Entity` para saldos insuficientes), ocultando stack traces e não expondo a arquitetura interna.
+- **Defesa contra Race Conditions (Pessimistic Locking):** `@Lock(LockModeType.PESSIMISTIC_WRITE)` no banco. Evita que duas operações simultâneas na mesma conta leiam o mesmo saldo base, prevenindo a duplicação indevida de fundos.
+- **Prevenção de Deadlock:** nas transferências, as contas são travadas sempre em ordem crescente de ID, de modo que operações A→B e B→A simultâneas não se bloqueiam mutuamente.
+- **Transações ACID Rigorosas:** `@Transactional` nos serviços financeiros. Se o débito na origem ocorrer mas o crédito no destino falhar, toda a operação é revertida.
+- **Idempotência em duas camadas:** verificação da chave no código + constraint `UNIQUE` no banco como garantia final.
+- **JWT com revogação:** o filtro consulta o usuário a cada requisição; tokens emitidos antes da última troca de senha e usuários desativados são rejeitados.
+- **Proteção contra BOLA/IDOR:** o sistema valida que a conta de origem pertence ao usuário autenticado.
+- **Alta Concorrência com Virtual Threads:** `spring.threads.virtual.enabled=true` (Java 21).
+- **Proteção contra Força Bruta e Spam:** Rate Limiting por IP (5 requisições por minuto, reposição gradual), retornando `429 Too Many Requests`.
+- **Notificações desacopladas:** evento publicado na transferência e tratado de forma assíncrona somente após o commit (`@TransactionalEventListener(AFTER_COMMIT)`).
+- **Tratamento de Exceções Semânticas:** respostas HTTP claras e sem stack trace: `400` (entrada inválida / saldo insuficiente), `401` (credenciais inválidas), `403` (sem permissão), `404` (conta não encontrada), `409` (idempotência duplicada) e `422` (conta inativa / limite excedido).
 
 ---
 
@@ -91,25 +100,28 @@ docker-compose up db -d
 mvn spring-boot:run
 ```
 
+4. **Rodar os testes**
+```bash
+./mvnw test
+```
+
 ---
 
 ## 📡 Endpoints Principais
 
-Abaixo estão as rotas mais importantes da API:
-
-### 👤 Usuários & Autenticação
-- `POST /auth/login` - Autentica usuário e retorna o token JWT.
+### 👤 Autenticação
+- `POST /login` — autentica o usuário e retorna o token JWT (público).
 
 ### 💳 Contas
-- `POST /contas` - Cria uma nova conta bancária (Cria usuário e conta via transação).
-- `GET /contas/{id}` - Retorna dados e saldo da conta.
+- `POST /conta` — cria a conta de um usuário existente, com saldo inicial zero. Usuário comum só cria para si; `ADMIN` cria para qualquer usuário.
 
 ### 💸 Transações
-- `POST /transacoes/transferir` - Realiza uma transferência entre contas.
-- `POST /transacoes/depositar` - Realiza um depósito na conta (Apenas admin ou sistema interno).
-- `GET /transacoes/{contaId}/extrato` - Retorna o extrato de movimentações.
+- `POST /transacao` — transferência entre contas (exige `X-Idempotency-Key`).
+- `POST /transacao/deposito` — depósito em uma conta (**apenas `ADMIN`**, exige `X-Idempotency-Key`).
+- `POST /transacao/saque` — saque da conta do usuário logado (exige `X-Idempotency-Key`).
+- `GET /transacao/extrato/{contaId}` — extrato paginado (`?page=0&size=10`).
 
-*(Observação: Todas as requisições de contas e transações necessitam do envio do Header `Authorization: Bearer <seu-token-jwt>`)*
+*(Observação: todas as rotas, exceto `/login` e o Swagger, exigem o header `Authorization: Bearer <seu-token-jwt>`)*
 
 ---
 
@@ -117,4 +129,4 @@ Abaixo estão as rotas mais importantes da API:
 
 **Uerles Santos**  
 *Java Backend Developer in training*  
-[🔗 LinkedIn](https://www.linkedin.com/in/) | [🐙 GitHub](https://github.com/u-santos1)
+[🐙 GitHub](https://github.com/u-santos1)

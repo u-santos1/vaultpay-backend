@@ -35,7 +35,8 @@ public class TransacaoService {
 
     @Transactional
     @CacheEvict(value = "extrato", allEntries = true)
-    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia, Usuario usuarioLogado) {
+    public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia,
+            Usuario usuarioLogado) {
 
         if (data.idContaOrigem().equals(data.idContaDestino())) {
             throw new IllegalArgumentException("Conta de origem e destino não podem ser a mesma.");
@@ -43,32 +44,36 @@ public class TransacaoService {
         if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor da transferência deve ser maior que zero.");
         }
-        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)){
-            throw new TransacaoDuplicadaException("Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
+        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)) {
+            throw new TransacaoDuplicadaException(
+                    "Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
         }
 
-        // Ordenando os IDs para evitar deadlocks em transferências concorrentes (ex: A -> B e B -> A simultaneamente)
-        Long firstIdToLock = data.idContaOrigem() < data.idContaDestino() ? data.idContaOrigem() : data.idContaDestino();
-        Long secondIdToLock = data.idContaOrigem() < data.idContaDestino() ? data.idContaDestino() : data.idContaOrigem();
+        // Ordenando os IDs para evitar deadlocks em transferências concorrentes (ex: A
+        // -> B e B -> A simultaneamente)
+        Long firstIdToLock = data.idContaOrigem() < data.idContaDestino() ? data.idContaOrigem()
+                : data.idContaDestino();
+        Long secondIdToLock = data.idContaOrigem() < data.idContaDestino() ? data.idContaDestino()
+                : data.idContaOrigem();
 
         // Adquirindo lock pessimista definido no ContaRepository
         Conta firstConta = contaRepository.findByIdWithPessimisticLock(firstIdToLock)
                 .orElseThrow(() -> new ContaNaoEncontradaException("Conta não encontrada: " + firstIdToLock));
-        
+
         Conta secondConta = contaRepository.findByIdWithPessimisticLock(secondIdToLock)
                 .orElseThrow(() -> new ContaNaoEncontradaException("Conta não encontrada: " + secondIdToLock));
 
         Conta contaOrigem = firstConta.getId().equals(data.idContaOrigem()) ? firstConta : secondConta;
         Conta contaDestino = firstConta.getId().equals(data.idContaDestino()) ? firstConta : secondConta;
 
-        if (!contaOrigem.getUsuario().getId().equals(usuarioLogado.getId())){
+        if (!contaOrigem.getUsuario().getId().equals(usuarioLogado.getId())) {
             throw new AcessoNegadoException("Usuario diferente da conta origem");
         }
 
-        if(!contaOrigem.getAtivo()){
+        if (!contaOrigem.getAtivo()) {
             throw new ContaInativaException("Operação cancelada: A conta de origem está inativa.");
         }
-        if(!contaDestino.getAtivo()){
+        if (!contaDestino.getAtivo()) {
             throw new ContaInativaException("Operação cancelada: A conta de destino está inativa.");
         }
 
@@ -76,10 +81,9 @@ public class TransacaoService {
             throw new SaldoInsuficienteException("Saldo insuficiente na conta de origem.");
         }
         if (contaOrigem.getLimiteTransacao() != null && data.valor()
-                .compareTo(contaDestino.getLimiteTransacao()) > 0){
+                .compareTo(contaOrigem.getLimiteTransacao()) > 0) {
             throw new LimiteTransacionalExcedidoException(
-                    "O valor da transferencia excede o limite permitido por transacao"
-            );
+                    "O valor da transferencia excede o limite permitido por transacao");
         }
 
         // Atualizando os saldos
@@ -105,15 +109,16 @@ public class TransacaoService {
 
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
     }
+
     @Cacheable(value = "extrato", key = "#contaId + '-' + #usuarioLogado.id + '-' + #pageable.pageNumber")
     @Transactional(readOnly = true)
     public Page<TransacaoResponseDTO> extratos(Long contaId,
-                                               Pageable pageable,
-                                               Usuario usuarioLogado){
+            Pageable pageable,
+            Usuario usuarioLogado) {
         Conta conta = contaRepository.findById(contaId)
-                .orElseThrow(()-> new ContaNaoEncontradaException("Não existe conta com esse Id."));
+                .orElseThrow(() -> new ContaNaoEncontradaException("Não existe conta com esse Id."));
 
-        if(!conta.getUsuario().getId().equals(usuarioLogado.getId())){
+        if (!conta.getUsuario().getId().equals(usuarioLogado.getId())) {
             throw new AcessoNegadoException("Usuario diferente da conta origem");
         }
         Page<Transacao> pagina = transacaoRepository.findByContaOrigemIdOrContaDestinoId(contaId, contaId, pageable);
@@ -127,8 +132,9 @@ public class TransacaoService {
         if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor do depósito deve ser maior que zero.");
         }
-        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)){
-            throw new TransacaoDuplicadaException("Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
+        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)) {
+            throw new TransacaoDuplicadaException(
+                    "Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
         }
 
         Conta conta = contaRepository.findByIdWithPessimisticLock(data.idConta())
@@ -162,14 +168,15 @@ public class TransacaoService {
         if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor do saque deve ser maior que zero.");
         }
-        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)){
-            throw new TransacaoDuplicadaException("Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
+        if (transacaoRepository.existsByChaveIdempotencia(chaveIdempotencia)) {
+            throw new TransacaoDuplicadaException(
+                    "Operação recusada: Uma transação com esta chave de idempotência já foi processada.");
         }
 
         Conta conta = contaRepository.findByIdWithPessimisticLock(data.idConta())
                 .orElseThrow(() -> new ContaNaoEncontradaException("Conta não encontrada: " + data.idConta()));
 
-        if (!conta.getUsuario().getId().equals(usuarioLogado.getId())){
+        if (!conta.getUsuario().getId().equals(usuarioLogado.getId())) {
             throw new AcessoNegadoException("Usuario diferente da conta");
         }
 
@@ -180,7 +187,7 @@ public class TransacaoService {
         if (conta.getSaldo().compareTo(data.valor()) < 0) {
             throw new SaldoInsuficienteException("Saldo insuficiente para saque.");
         }
-        if (conta.getLimiteTransacao() != null && data.valor().compareTo(conta.getLimiteTransacao()) > 0){
+        if (conta.getLimiteTransacao() != null && data.valor().compareTo(conta.getLimiteTransacao()) > 0) {
             throw new LimiteTransacionalExcedidoException("O valor do saque excede o limite permitido.");
         }
 

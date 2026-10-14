@@ -26,7 +26,7 @@ public class ContaService {
                 .orElseThrow(
                         () -> new IllegalArgumentException("Não é possível criar a conta: Usuário não encontrado."));
         Conta novaConta = Conta.builder().numero(data.numero())
-                .saldo(data.saldo())
+                .saldo(BigDecimal.ZERO)
                 .usuario(usuario)
                 .limiteTransacao(new BigDecimal("10000.00"))
                 .ativo(true)

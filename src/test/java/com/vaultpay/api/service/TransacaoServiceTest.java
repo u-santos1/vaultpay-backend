@@ -213,6 +213,8 @@ public class TransacaoServiceTest {
         Usuario usuarioLogado = new Usuario();
         usuarioLogado.setId(1L);
         contaOrigem.setSaldo(new BigDecimal("20000.00"));
+        contaOrigem.setLimiteTransacao(new BigDecimal("10000.00"));
+        contaDestino.setLimiteTransacao(new BigDecimal("50000.00"));
 
         when(contaRepository.findByIdWithPessimisticLock(1L)).thenReturn(Optional.of(contaOrigem));
         when(contaRepository.findByIdWithPessimisticLock(2L)).thenReturn(Optional.of(contaDestino));

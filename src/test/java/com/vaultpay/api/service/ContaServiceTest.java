@@ -46,7 +46,7 @@ public class ContaServiceTest {
         conta = Conta.builder()
                 .id(1L)
                 .numero("12345-6")
-                .saldo(new BigDecimal("100.00"))
+                .saldo(BigDecimal.ZERO)
                 .usuario(usuario)
                 .build();
     }
@@ -62,11 +62,11 @@ public class ContaServiceTest {
         assertNotNull(response);
         assertEquals(1L, response.id());
         assertEquals("12345-6", response.numero());
-        assertEquals(new BigDecimal("100.00"), response.saldo());
+        assertEquals(BigDecimal.ZERO, response.saldo());
 
         verify(contaRepository, times(1)).existsByNumero("12345-6");
         verify(usuarioRepository, times(1)).findById(1L);
-        verify(contaRepository, times(1)).save(any(Conta.class));
+        verify(contaRepository).save(argThat(c -> c.getSaldo().compareTo(BigDecimal.ZERO) == 0));
     }
 
     @Test

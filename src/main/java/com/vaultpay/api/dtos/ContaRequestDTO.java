@@ -7,8 +7,8 @@ import java.math.BigDecimal;
 
 public record ContaRequestDTO(
         @NotBlank String numero,
-        @NotNull BigDecimal saldo,
+        BigDecimal saldo,
         @NotNull Long usuarioId,
-        @NotNull BigDecimal limiteTransacao
+        BigDecimal limiteTransacao
 ) {
 }
