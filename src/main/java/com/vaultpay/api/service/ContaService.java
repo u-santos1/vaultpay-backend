@@ -35,4 +35,10 @@ public class ContaService {
         Conta contaSalvar = contaRepository.save(novaConta);
         return ContaResponse.dto(contaSalvar);
     }
+
+    public com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO buscarMinhaConta(Long usuarioId) {
+        Conta conta = contaRepository.findByUsuarioId(usuarioId)
+                .orElseThrow(() -> new com.vaultpay.api.infra.exception.ContaNaoEncontradaException("Nenhuma conta encontrada para o usuario autenticado."));
+        return com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO.fromEntity(conta);
+    }
 }

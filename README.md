@@ -100,7 +100,7 @@ docker-compose up db -d
 mvn spring-boot:run
 ```
 
-4. **Rodar os testes**
+4. **Rodar os testes (48 testes unitários, integração e concorrência com CountDownLatch)**
 ```bash
 ./mvnw test
 ```
@@ -109,10 +109,12 @@ mvn spring-boot:run
 
 ## 📡 Endpoints Principais
 
-### 👤 Autenticação
+### 👤 Usuários & Autenticação
+- `POST /usuarios` — cadastra um novo usuário e abre sua carteira digital automaticamente com saldo R$ 0,00 (público).
 - `POST /login` — autentica o usuário e retorna o token JWT (público).
 
 ### 💳 Contas
+- `GET /conta/me` — consulta os dados, número e saldo atual da carteira do usuário logado (via JWT).
 - `POST /conta` — cria a conta de um usuário existente, com saldo inicial zero. Usuário comum só cria para si; `ADMIN` cria para qualquer usuário.
 
 ### 💸 Transações
@@ -121,7 +123,7 @@ mvn spring-boot:run
 - `POST /transacao/saque` — saque da conta do usuário logado (exige `X-Idempotency-Key`).
 - `GET /transacao/extrato/{contaId}` — extrato paginado (`?page=0&size=10`).
 
-*(Observação: todas as rotas, exceto `/login` e o Swagger, exigem o header `Authorization: Bearer <seu-token-jwt>`)*
+*(Observação: todas as rotas, exceto `/usuarios`, `/login` e o Swagger, exigem o header `Authorization: Bearer <seu-token-jwt>`)*
 
 ---
 

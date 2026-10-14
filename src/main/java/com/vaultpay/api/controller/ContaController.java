@@ -40,4 +40,13 @@ public class ContaController {
         var uri = componentsBuilder.path("/conta/{id}").buildAndExpand(dto.id()).toUri();
         return ResponseEntity.created(uri).body(dto);
     }
+
+    @org.springframework.web.bind.annotation.GetMapping("/me")
+    @SecurityRequirement(name = "bearer-key")
+    public ResponseEntity<com.vaultpay.api.dtosResponse.ContaDetalhesResponseDTO> minhaConta(
+            @Parameter(hidden = true) @AuthenticationPrincipal Usuario usuarioLogado
+    ) {
+        var response = contaService.buscarMinhaConta(usuarioLogado.getId());
+        return ResponseEntity.ok(response);
+    }
 }

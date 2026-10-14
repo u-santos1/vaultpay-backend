@@ -120,4 +120,28 @@ public class ContaServiceTest {
 
         verify(contaRepository).save(argThat(Conta::getAtivo));
     }
+
+    @Test
+    void buscarMinhaConta_DeveRetornarContaQuandoExistir() {
+        when(contaRepository.findByUsuarioId(1L)).thenReturn(Optional.of(conta));
+
+        var response = contaService.buscarMinhaConta(1L);
+
+        assertNotNull(response);
+        assertEquals(1L, response.id());
+        assertEquals("12345-6", response.numero());
+        assertEquals(BigDecimal.ZERO, response.saldo());
+        assertTrue(response.ativo());
+        verify(contaRepository).findByUsuarioId(1L);
+    }
+
+    @Test
+    void buscarMinhaConta_DeveLancarExcecaoQuandoNaoExistir() {
+        when(contaRepository.findByUsuarioId(99L)).thenReturn(Optional.empty());
+
+        assertThrows(com.vaultpay.api.infra.exception.ContaNaoEncontradaException.class, () ->
+                contaService.buscarMinhaConta(99L)
+        );
+        verify(contaRepository).findByUsuarioId(99L);
+    }
 }
