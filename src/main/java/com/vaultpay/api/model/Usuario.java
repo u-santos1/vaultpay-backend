@@ -14,7 +14,7 @@ import java.util.List;
 @Entity
 @Getter
 @Setter
-@AllArgsConstructor
+
 @NoArgsConstructor
 @Table(name = "tb_usuarios")
 public class Usuario implements UserDetails {
@@ -48,6 +48,12 @@ public class Usuario implements UserDetails {
             return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_USER"));
         }
         return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    public Usuario(String email, String senha, PerfilDeAcesso perfilDeAcesso) {
+        this.email = email;
+        this.senha = senha;
+        this.perfilDeAcesso = perfilDeAcesso;
     }
 
     @Override

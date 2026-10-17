@@ -12,10 +12,14 @@ import java.time.LocalDateTime;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
+
 public class TransacaoScheduler {
 
     private  final TransacaoRepository transacaoRepository;
+
+    public TransacaoScheduler(TransacaoRepository transacaoRepository) {
+        this.transacaoRepository = transacaoRepository;
+    }
 
     @Scheduled(cron = "0 0 2 * * ?")
     @Transactional

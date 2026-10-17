@@ -63,7 +63,7 @@ public class TransacaoConcurrencyTest {
 
         conta = Conta.builder()
                 .numero("99999-9")
-                .saldo(new BigDecimal("500.00")) // Saldo inicial: R$ 500,00
+                .saldo(new BigDecimal("500.00")) 
                 .limiteTransacao(new BigDecimal("10000.00"))
                 .ativo(true)
                 .usuario(usuario)
@@ -94,7 +94,7 @@ public class TransacaoConcurrencyTest {
         for (int i = 0; i < totalThreads; i++) {
             executor.submit(() -> {
                 try {
-                    startSignal.await(); // Todas as threads ficam na largada esperando o tiro!
+                    startSignal.await(); 
                     SaqueRequestDTO request = new SaqueRequestDTO(conta.getId(), valorSaque);
                     String chave = UUID.randomUUID().toString();
 
@@ -103,26 +103,26 @@ public class TransacaoConcurrencyTest {
                 } catch (SaldoInsuficienteException e) {
                     falhasSaldo.incrementAndGet();
                 } catch (Exception e) {
-                    // Outras exceções inesperadas
+                    
                 } finally {
                     doneSignal.countDown();
                 }
             });
         }
 
-        // DISPARO SIMULTÂNEO: libera as 10 threads ao mesmo tempo
+        
         startSignal.countDown();
 
-        // Aguarda todas as 10 threads terminarem o processamento
+        
         boolean finalizou = doneSignal.await(10, TimeUnit.SECONDS);
         executor.shutdown();
 
-        // Verificações:
+        
         assertEquals(true, finalizou, "O processamento concorrente não deve travar em timeout");
         assertEquals(5, sucessos.get(), "Exatamente 5 saques de R$ 100 devem ter sucesso");
         assertEquals(5, falhasSaldo.get(), "Exatamente 5 saques devem falhar por Saldo Insuficiente");
 
-        // O saldo no banco DEVE ser exatamente R$ 0,00
+        
         Conta contaAtualizada = contaRepository.findById(conta.getId()).orElseThrow();
         assertEquals(0, new BigDecimal("0.00").compareTo(contaAtualizada.getSaldo()),
                 "O saldo final deve ser exatamente R$ 0,00 sem perda de atualização");

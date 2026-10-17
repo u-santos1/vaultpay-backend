@@ -132,6 +132,18 @@
 		</plugins>
 	</build>
 
-
+	<profiles>
+		<profile>
+			<id>m2e-ide</id>
+			<activation>
+				<property>
+					<name>m2e.version</name>
+				</property>
+			</activation>
+			<properties>
+				<java.version>25</java.version>
+			</properties>
+		</profile>
+	</profiles>
 
 </project>
