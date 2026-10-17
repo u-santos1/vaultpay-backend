@@ -35,5 +35,5 @@ build/
 
 ### Temporary / Agent files ###
 .agent/
-ecc-temp/
 *.txt
+.agents/

@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: 123
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - vaultpay_data:/var/lib/postgresql/data
 
