@@ -37,3 +37,4 @@ build/
 .agent/
 *.txt
 .agents/
+vaultpay-backend/
