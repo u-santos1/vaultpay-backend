@@ -65,7 +65,7 @@ O **VaultPay API** é uma API RESTful desenvolvida do zero para simular o núcle
 - **Alta Concorrência com Virtual Threads:** `spring.threads.virtual.enabled=true` (Java 21).
 - **Proteção contra Força Bruta e Spam:** Rate Limiting por IP (5 requisições por minuto, reposição gradual), retornando `429 Too Many Requests`.
 - **Notificações desacopladas:** evento publicado na transferência e tratado de forma assíncrona somente após o commit (`@TransactionalEventListener(AFTER_COMMIT)`).
-- **Tratamento de Exceções Semânticas:** respostas HTTP claras e sem stack trace: `400` (entrada inválida / saldo insuficiente), `401` (credenciais inválidas), `403` (sem permissão), `404` (conta não encontrada), `409` (idempotência duplicada) e `422` (conta inativa / limite excedido).
+- **Tratamento de Exceções Semânticas:** respostas HTTP claras e sem stack trace: `400` (sintaxe inválida / requisição malformada), `401` (credenciais inválidas / token revogado), `403` (sem permissão / BOLA), `404` (conta não encontrada), `409` (idempotência duplicada) e `422` (regras de negócio: saldo insuficiente, conta inativa, limite excedido).
 
 ---
 

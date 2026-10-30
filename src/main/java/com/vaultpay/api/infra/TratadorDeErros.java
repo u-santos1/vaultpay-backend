@@ -18,6 +18,10 @@ import com.vaultpay.api.infra.exception.ContaNaoEncontradaException;
 import com.vaultpay.api.infra.exception.LimiteTransacionalExcedidoException;
 import com.vaultpay.api.infra.exception.SaldoInsuficienteException;
 import com.vaultpay.api.infra.exception.TransacaoDuplicadaException;
+import com.vaultpay.api.infra.exception.TokenException;
+import org.springframework.security.access.AccessDeniedException;
+
+
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,9 +29,18 @@ import lombok.extern.slf4j.Slf4j;
 @RestControllerAdvice
 public class TratadorDeErros {
 
-    @ExceptionHandler(SaldoInsuficienteException.class)
-    public ResponseEntity<ErrorDTO> tratarErroSaldoInsuficiente(SaldoInsuficienteException error) {
-        return ResponseEntity.badRequest().body(new ErrorDTO(error.getMessage()));
+    @ExceptionHandler({
+    SaldoInsuficienteException.class, 
+    ContaInativaException.class, 
+    LimiteTransacionalExcedidoException.class 
+})
+    public ResponseEntity<ErrorDTO> tratarRegraDeNegocio(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new ErrorDTO(e.getMessage()));
+    }
+
+    @ExceptionHandler(TokenException.class)
+    public ResponseEntity<ErrorDTO> tratarTokenInvalido(TokenException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorDTO(e.getMessage()));
     }
 
     @ExceptionHandler(ContaNaoEncontradaException.class)
@@ -47,15 +60,15 @@ public class TratadorDeErros {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorDTO(e.getMessage()));
     }
 
-    @ExceptionHandler(AcessoNegadoException.class)
-    public ResponseEntity<ErrorDTO> tratarAcessoNegado(AcessoNegadoException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorDTO(e.getMessage()));
-    }
+    @ExceptionHandler({ 
+    AcessoNegadoException.class, 
+    AccessDeniedException.class 
+})
+public ResponseEntity<ErrorDTO> tratarAcessoNegado(Exception e) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(new ErrorDTO(e.getMessage() != null ? e.getMessage() : "Acesso negado: permissão insuficiente."));
+}
 
-    @ExceptionHandler({ ContaInativaException.class, LimiteTransacionalExcedidoException.class })
-    public ResponseEntity<ErrorDTO> tratarRegraDeNegocio(RuntimeException e) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new ErrorDTO(e.getMessage()));
-    }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorDTO> tratarAutenticacao(AuthenticationException e) {
