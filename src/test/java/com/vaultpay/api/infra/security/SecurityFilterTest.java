@@ -124,6 +124,25 @@ class SecurityFilterTest {
         assertNotNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
+    @Test
+    @DisplayName("doFilterInternal: quando getIssuedAt for null e usuario tiver dataUltimaAlteracaoSenha, não deve estourar NPE e deve autenticar")
+    void issuedAtNulo_NaoDeveLancarNPEEAutenticar() throws Exception {
+        String tokenJWT = "token.sem.iat";
+        String email = "sem.iat@vaultpay.com";
+        Usuario usuario = criarUsuario(email, true, Instant.now());
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + tokenJWT);
+        when(tokenService.getSubject(tokenJWT)).thenReturn(email);
+        when(tokenService.getIssuedAt(tokenJWT)).thenReturn(null);
+        when(usuarioRepository.findByEmail(email)).thenReturn(Optional.of(usuario));
+
+        securityFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertEquals(usuario, SecurityContextHolder.getContext().getAuthentication().getPrincipal());
+    }
+
     // =========================================================
     // Cenário: usuário desativado/bloqueado
     // =========================================================

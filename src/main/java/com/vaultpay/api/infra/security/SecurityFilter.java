@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Component
 @RequiredArgsConstructor
@@ -40,10 +42,14 @@ public class SecurityFilter extends OncePerRequestFilter {
                 if (!usuario.isEnabled() || !usuario.isAccountNonLocked()) {
                     throw new TokenException("Usuario desativado ou bloquado");
                 }
-                if (usuario.getDataUltimaAlteracaoSenha() != null
-                        && issuedAt.isBefore(usuario.getDataUltimaAlteracaoSenha())) {
-                    throw new TokenException("Token revogado: a senha foi alterado recentemente.");
+                if (issuedAt != null && usuario.getDataUltimaAlteracaoSenha() != null) {
+                    Instant alteracaoSenhaSegundos = usuario.getDataUltimaAlteracaoSenha()
+                            .truncatedTo(ChronoUnit.SECONDS);
+                    if (issuedAt.isBefore(alteracaoSenhaSegundos)) {
+                        throw new TokenException("Token revogado: a senha foi alterada recentemente.");
+                    }
                 }
+
                 var authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
