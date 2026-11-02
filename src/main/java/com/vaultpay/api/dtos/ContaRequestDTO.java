@@ -6,9 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 public record ContaRequestDTO(
-        @NotBlank String numero,
-        BigDecimal saldo,
-        @NotNull Long usuarioId,
-        BigDecimal limiteTransacao
-) {
+        @NotBlank(message = "O número da conta é obrigatório") String numero,
+        @NotNull(message = "O ID do usuário é obrigatório") Long usuarioId,
+        BigDecimal limiteTransacao) {
 }

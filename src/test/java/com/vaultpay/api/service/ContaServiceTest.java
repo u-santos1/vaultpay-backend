@@ -40,7 +40,7 @@ public class ContaServiceTest {
 
     @BeforeEach
     void setUp() {
-        contaRequestDTO = new ContaRequestDTO("12345-6", new BigDecimal("100.00"), 1L, new BigDecimal("10000.00"));
+        contaRequestDTO = new ContaRequestDTO("12345-6", 1L, new BigDecimal("10000.00"));
         usuario = new Usuario();
         usuario.setId(1L);
         conta = Conta.builder()
@@ -143,5 +143,29 @@ public class ContaServiceTest {
                 contaService.buscarMinhaConta(99L)
         );
         verify(contaRepository).findByUsuarioId(99L);
+    }
+
+    @Test
+    void criarConta_DeveUsarLimitePersonalizadoQuandoFornecido() {
+        ContaRequestDTO dtoComLimite = new ContaRequestDTO("65432-1", 1L, new BigDecimal("5000.00"));
+        when(contaRepository.existsByNumero("65432-1")).thenReturn(false);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(contaRepository.save(any(Conta.class))).thenReturn(conta);
+
+        contaService.CriarConta(dtoComLimite);
+
+        verify(contaRepository).save(argThat(c -> c.getLimiteTransacao().compareTo(new BigDecimal("5000.00")) == 0));
+    }
+
+    @Test
+    void criarConta_DeveUsarLimitePadraoQuandoNaoFornecido() {
+        ContaRequestDTO dtoSemLimite = new ContaRequestDTO("65432-1", 1L, null);
+        when(contaRepository.existsByNumero("65432-1")).thenReturn(false);
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(contaRepository.save(any(Conta.class))).thenReturn(conta);
+
+        contaService.CriarConta(dtoSemLimite);
+
+        verify(contaRepository).save(argThat(c -> c.getLimiteTransacao().compareTo(new BigDecimal("10000.00")) == 0));
     }
 }

@@ -32,4 +32,6 @@ public class UsuarioController {
         var uri = uriBuilder.path("/usuarios/{id}").buildAndExpand(response.id()).toUri();
         return ResponseEntity.created(uri).body(response);
     }
+
+    
 }

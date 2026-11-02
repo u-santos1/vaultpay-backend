@@ -27,10 +27,14 @@ public class ContaService {
         Usuario usuario = usuarioRepository.findById(data.usuarioId())
                 .orElseThrow(
                         () -> new IllegalArgumentException("Não é possível criar a conta: Usuário não encontrado."));
+        BigDecimal limite = (data.limiteTransacao() != null && data.limiteTransacao().compareTo(BigDecimal.ZERO) > 0)
+                ? data.limiteTransacao()
+                : new BigDecimal("10000.00");
+
         Conta novaConta = Conta.builder().numero(data.numero())
                 .saldo(BigDecimal.ZERO)
                 .usuario(usuario)
-                .limiteTransacao(new BigDecimal("10000.00"))
+                .limiteTransacao(limite)
                 .ativo(true)
                 .build();
 
