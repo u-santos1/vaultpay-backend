@@ -19,6 +19,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
@@ -45,6 +46,9 @@ public class TransacaoServiceTest {
 
     @Mock
     private TransacaoRepository transacaoRepository;
+
+    @Mock
+    private CacheManager cacheManager;
 
     @InjectMocks
     private TransacaoService transacaoService;

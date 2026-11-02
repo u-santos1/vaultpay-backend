@@ -14,7 +14,8 @@ import com.vaultpay.api.model.Usuario;
 import com.vaultpay.api.repository.ContaRepository;
 import com.vaultpay.api.repository.TransacaoRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -32,9 +33,9 @@ public class TransacaoService {
     private final ContaRepository contaRepository;
     private final TransacaoRepository transacaoRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final CacheManager cacheManager;
 
     @Transactional
-    @CacheEvict(value = "extrato", allEntries = true)
     public TransacaoResponseDTO realizarTransferencia(TransacaoRequestDTO data, String chaveIdempotencia,
             Usuario usuarioLogado) {
 
@@ -106,11 +107,12 @@ public class TransacaoService {
 
         Transacao transacaoSalva = transacaoRepository.save(transacao);
         eventPublisher.publishEvent(new TransferenciaRealizadaEvent(transacaoSalva));
+        invalidarCacheContas(data.idContaOrigem(), data.idContaDestino());
 
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
     }
 
-    @Cacheable(value = "extrato", key = "#contaId + '-' + #usuarioLogado.id + '-' + #pageable.pageNumber")
+    @Cacheable(value = "extrato", key = "#contaId + '-' + #usuarioLogado.id + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort")
     @Transactional(readOnly = true)
     public Page<TransacaoResponseDTO> extratos(Long contaId,
             Pageable pageable,
@@ -127,7 +129,6 @@ public class TransacaoService {
     }
 
     @Transactional
-    @CacheEvict(value = "extrato", allEntries = true)
     public TransacaoResponseDTO realizarDeposito(DepositoRequestDTO data, String chaveIdempotencia) {
         if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor do depósito deve ser maior que zero.");
@@ -158,12 +159,12 @@ public class TransacaoService {
                 .build();
 
         Transacao transacaoSalva = transacaoRepository.save(transacao);
+        invalidarCacheContas(data.idConta());
 
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
     }
 
     @Transactional
-    @CacheEvict(value = "extrato", allEntries = true)
     public TransacaoResponseDTO realizarSaque(SaqueRequestDTO data, String chaveIdempotencia, Usuario usuarioLogado) {
         if (data.valor() == null || data.valor().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor do saque deve ser maior que zero.");
@@ -205,7 +206,36 @@ public class TransacaoService {
                 .build();
 
         Transacao transacaoSalva = transacaoRepository.save(transacao);
+        invalidarCacheContas(data.idConta());
 
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
+    }
+
+    /**
+     * Invalidação cirúrgica de cache por conta.
+     * Remove apenas as chaves do extrato prefixadas com o(s) contaId(s) envolvido(s),
+     * preservando intactos os extratos em cache de todos os demais usuários.
+     */
+    private void invalidarCacheContas(Long... contaIds) {
+        if (cacheManager == null || contaIds == null) {
+            return;
+        }
+        Cache cache = cacheManager.getCache("extrato");
+        if (cache == null) {
+            return;
+        }
+
+        Object nativeCache = cache.getNativeCache();
+        for (Long contaId : contaIds) {
+            if (contaId == null) {
+                continue;
+            }
+            String prefixo = contaId + "-";
+            if (nativeCache instanceof com.github.benmanes.caffeine.cache.Cache<?, ?> caffeineCache) {
+                caffeineCache.asMap().keySet().removeIf(key -> key != null && key.toString().startsWith(prefixo));
+            } else if (nativeCache instanceof java.util.Map<?, ?> map) {
+                map.keySet().removeIf(key -> key != null && key.toString().startsWith(prefixo));
+            }
+        }
     }
 }
