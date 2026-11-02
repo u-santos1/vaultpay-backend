@@ -17,6 +17,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -38,9 +40,11 @@ public class VaultPayTools {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     @Tool("Consulta o saldo disponível, limite transacional diário e status da conta do cliente atual")
-    public String consultarSaldo(
-            @P("ID do usuário autenticado no sistema") Long usuarioId
-    ) {
+    public String consultarSaldo() {
+
+        Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long usuarioId = usuario.getId();
+
         log.info("[AI TOOL] Consultando saldo para usuarioId={}", usuarioId);
 
         Conta conta = contaRepository.findByUsuarioId(usuarioId)
@@ -67,9 +71,11 @@ public class VaultPayTools {
     }
 
     @Tool("Consulta os lançamentos e movimentações mais recentes do extrato bancário do cliente")
-    public String consultarExtrato(
-            @P("ID do usuário autenticado no sistema") Long usuarioId
-    ) {
+    public String consultarExtrato() {
+
+        Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long usuarioId = usuario.getId();
+
         log.info("[AI TOOL] Consultando extrato para usuarioId={}", usuarioId);
 
         Conta conta = contaRepository.findByUsuarioId(usuarioId)
@@ -117,17 +123,18 @@ public class VaultPayTools {
 
     @Tool("Realiza uma transferência financeira entre a conta do cliente autenticado e uma conta de destino informada")
     public String transferir(
-            @P("ID do usuário autenticado que está enviando a transferência") Long usuarioId,
             @P("ID numérico da conta de destino que receberá os fundos") Long contaDestinoId,
             @P("Valor numérico da transferência em Reais (ex: 50.00)") Double valor,
             @P("Motivo ou descrição opcional da transferência") String descricao
     ) {
+        
+        Usuario usuario = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long usuarioId = usuario.getId();
+
         log.info("[AI TOOL] Realizando transferência: usuarioId={}, destino={}, valor={}", usuarioId, contaDestinoId, valor);
+    
 
         try {
-            Usuario usuario = usuarioRepository.findById(usuarioId)
-                    .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
-
             Conta contaOrigem = contaRepository.findByUsuarioId(usuarioId)
                     .orElseThrow(() -> new IllegalArgumentException("Conta de origem não encontrada."));
 
