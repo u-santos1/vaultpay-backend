@@ -36,7 +36,7 @@ public class TokenService {
             return JWT.create()
                     .withIssuer("API VAULTPAY")
                     .withSubject(usuario.getEmail())
-                    .withIssuedAt(Instant.now())
+                    .withIssuedAt(Instant.now().truncatedTo(ChronoUnit.SECONDS))
                     .withExpiresAt(dataExpiracao())
                     .sign(algoritmo);
         } catch (JWTCreationException exception) {
