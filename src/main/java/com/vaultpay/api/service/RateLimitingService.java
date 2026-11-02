@@ -25,9 +25,10 @@ public class RateLimitingService {
         }
 
         private Bucket novoBalde(String ip) {
+            // Limite geral de IP: 60 requisições por minuto (evita falsos-positivos em extratos/paginação)
             Bandwidth limite = Bandwidth.builder()
-            .capacity(5)
-            .refillGreedy(5, Duration.ofMinutes(1))
+            .capacity(60)
+            .refillGreedy(60, Duration.ofMinutes(1))
             .build();
 
             return Bucket.builder().addLimit(limite).build();

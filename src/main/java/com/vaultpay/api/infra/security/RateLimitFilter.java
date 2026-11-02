@@ -28,17 +28,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         String method = request.getMethod();
 
-        // Ignora endpoints de documentação Swagger/OpenAPI
-        if (uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs")) {
+        // Ignora endpoints de documentação Swagger/OpenAPI e healthcheck do Actuator
+        if (uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs") || uri.startsWith("/actuator")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         String ip = getClientIp(request);
 
-        // Identifica rotas críticas de registro e autenticação (alvos comuns de força bruta e DoS)
+        // Identifica rotas críticas de registro, autenticação e movimentação financeira (alvos comuns de força bruta e DoS)
         boolean rotaSensivel = (uri.equals("/usuarios") && "POST".equalsIgnoreCase(method))
-                || (uri.equals("/login") && "POST".equalsIgnoreCase(method));
+                || (uri.equals("/login") && "POST".equalsIgnoreCase(method))
+                || (uri.startsWith("/transacao") && "POST".equalsIgnoreCase(method));
 
         Bucket bucket = rotaSensivel
                 ? registroRateLimitService.resolveBucket(ip)
@@ -57,13 +58,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String ipAddress = request.getHeader("X-Forwarded-For");
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getRemoteAddr();
-        }
-        if (ipAddress != null && ipAddress.contains(",")) {
-            ipAddress = ipAddress.split(",")[0].trim();
-        }
-        return ipAddress;
+        String remoteAddr = request.getRemoteAddr();
+        return (remoteAddr != null && !remoteAddr.isBlank()) ? remoteAddr : "unknown";
     }
 }
