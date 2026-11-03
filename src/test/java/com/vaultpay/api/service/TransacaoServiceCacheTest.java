@@ -1,5 +1,9 @@
 package com.vaultpay.api.service;
 
+import com.vaultpay.api.dtos.SaqueRequestDTO;
+import com.vaultpay.api.infra.exception.SaldoInsuficienteException;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import com.vaultpay.api.dtos.DepositoRequestDTO;
 import com.vaultpay.api.model.Conta;
 import com.vaultpay.api.model.Transacao;
@@ -139,5 +143,38 @@ public class TransacaoServiceCacheTest {
         verify(transacaoRepository, times(2)).findByContaOrigemIdOrContaDestinoId(eq(conta1), eq(conta1), any());
         // Conta 2 deve ter sido consultada apenas 1 vez (permaneceu intacta em cache!)
         verify(transacaoRepository, times(1)).findByContaOrigemIdOrContaDestinoId(eq(conta2), eq(conta2), any());
+    }
+    @Test
+    void seTransacaoFalharERollback_NaoDeveInvalidarCache(){
+        Long contaId = 300L;
+        Usuario usuario = new Usuario();
+        usuario.setId(30L);
+
+        Conta c = new Conta();
+        c.setId(contaId);
+        c.setUsuario(usuario);
+        c.setSaldo(new BigDecimal("10.00")); // Saldo de apenas 10 reais
+        c.setAtivo(true);
+
+        PageRequest page = PageRequest.of(0, 10);
+        Page<Transacao> paginaVazia = new PageImpl<>(List.of());
+        when(contaRepository.findById(contaId)).thenReturn(Optional.of(c));
+        when(contaRepository.findByIdWithPessimisticLock(contaId)).thenReturn(Optional.of(c));
+        when(transacaoRepository.findByContaOrigemIdOrContaDestinoId(any(), any(), any()))
+                .thenReturn(paginaVazia);
+
+        // 1. Popula o cache do extrato
+        service.extratos(contaId, page, usuario);
+        // 2. Tenta fazer um saque maior que o saldo (vai lançar SaldoInsuficienteException e dar Rollback)
+        SaqueRequestDTO saqueInvalido = new SaqueRequestDTO(contaId, new BigDecimal("100.00"));
+        assertThrows(SaldoInsuficienteException.class, () -> 
+            service.realizarSaque(saqueInvalido, "chave-rollback", usuario)
+        );
+        
+        // 3. Consulta o extrato de novo
+        service.extratos(contaId, page, usuario);
+        // Se o cache só for invalidado no afterCommit, como deu Rollback, o cache foi PRESERVADO!
+        // O repositório só pode ter sido chamado 1 vez (na 1ª consulta).
+        verify(transacaoRepository, times(1)).findByContaOrigemIdOrContaDestinoId(eq(contaId), eq(contaId), any());
     }
 }

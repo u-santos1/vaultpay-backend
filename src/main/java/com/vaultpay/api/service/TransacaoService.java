@@ -22,6 +22,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -211,31 +213,47 @@ public class TransacaoService {
         return TransacaoResponseDTO.fromEntity(transacaoSalva);
     }
 
-    /**
+        /**
      * Invalidação cirúrgica de cache por conta.
-     * Remove apenas as chaves do extrato prefixadas com o(s) contaId(s) envolvido(s),
-     * preservando intactos os extratos em cache de todos os demais usuários.
+     * Agenda a limpeza para rodar estritamente APÓS o commit da transação no banco,
+     * evitando que consultas concorrentes recacheiem dados desatualizados (MVCC).
      */
     private void invalidarCacheContas(Long... contaIds) {
         if (cacheManager == null || contaIds == null) {
             return;
         }
-        Cache cache = cacheManager.getCache("extrato");
-        if (cache == null) {
-            return;
-        }
 
-        Object nativeCache = cache.getNativeCache();
-        for (Long contaId : contaIds) {
-            if (contaId == null) {
-                continue;
+        // 1. Guardamos a instrução de limpeza dentro de um Runnable
+        Runnable acaoLimpeza = () -> {
+            Cache cache = cacheManager.getCache("extrato");
+            if (cache == null) {
+                return;
             }
-            String prefixo = contaId + "-";
-            if (nativeCache instanceof com.github.benmanes.caffeine.cache.Cache<?, ?> caffeineCache) {
-                caffeineCache.asMap().keySet().removeIf(key -> key != null && key.toString().startsWith(prefixo));
-            } else if (nativeCache instanceof java.util.Map<?, ?> map) {
-                map.keySet().removeIf(key -> key != null && key.toString().startsWith(prefixo));
+
+            Object nativeCache = cache.getNativeCache();
+            for (Long contaId : contaIds) {
+                if (contaId == null) {
+                    continue;
+                }
+                String prefixo = contaId + "-";
+                if (nativeCache instanceof com.github.benmanes.caffeine.cache.Cache<?, ?> caffeineCache) {
+                    caffeineCache.asMap().keySet().removeIf(key -> key != null && key.toString().startsWith(prefixo));
+                } else if (nativeCache instanceof java.util.Map<?, ?> map) {
+                    map.keySet().removeIf(key -> key != null && key.toString().startsWith(prefixo));
+                }
             }
+        };
+
+        // 2. Se houver transação ativa, agenda para o AFTER_COMMIT. Senão, executa na hora.
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    acaoLimpeza.run();
+                }
+            });
+        } else {
+            acaoLimpeza.run();
         }
     }
 }
